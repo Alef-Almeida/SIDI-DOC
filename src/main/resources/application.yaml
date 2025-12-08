@@ -3,6 +3,19 @@ spring:
     import: optional:file:.env[.properties]
   application:
     name: sididoc
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+  security:
+    jwt:
+      secret: ${SECURITY_JWT_SECRET}
+      expiration-millis: ${JWT_EXPIRATION:3600000}
 
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
@@ -18,3 +31,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
+
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
