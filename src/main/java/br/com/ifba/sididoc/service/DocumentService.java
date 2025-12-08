@@ -11,6 +11,7 @@ import br.com.ifba.sididoc.repository.DocumentRepository;
 import br.com.ifba.sididoc.web.dto.DocumentResponseDTO;
 import br.com.ifba.sididoc.web.dto.UploadDocumentDTO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ import java.util.UUID;
 
 @RequiredArgsConstructor
 @Service
+@Slf4j // 1. Anotação do Lombok para injetar o 'log'
 public class DocumentService {
 
     private final DocumentRepository documentRepository;
@@ -42,22 +44,30 @@ public class DocumentService {
         MultipartFile file = dto.file();
         String originalFilename = file.getOriginalFilename();
         String contentType = file.getContentType();
+        long size = file.getSize();
+
+        log.info("Iniciando processamento de upload. Arquivo: [{}], Tipo: [{}], Tamanho: [{} bytes]", originalFilename, contentType, size);
+
         String title = validateAndExtractTitle(originalFilename);
         DocumentType type = detectDocumentType(contentType);
         String extension = getFileExtension(originalFilename);
-        String storageKey = UUID.randomUUID().toString() + extension;
+        String storageKey = UUID.randomUUID().toString() + "." + extension;
         String fullStoragePath = generateStoragePath(storageKey);
 
+        log.debug("Metadados extraídos com sucesso. Título: '{}', Caminho Storage: '{}'", title, fullStoragePath);
+
         try {
+            log.info("Enviando arquivo para o Supabase Storage (Bucket: {})...", bucketName);
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
                     .key(fullStoragePath)
                     .contentType(contentType)
                     .build();
-
             s3Client.putObject(putObjectRequest, RequestBody.fromBytes(file.getBytes()));
+            log.info("Upload para o Storage concluído com sucesso.");
 
         } catch (Exception e) {
+            log.error("Falha crítica ao enviar arquivo para o Storage. Caminho: {}", fullStoragePath, e);
             throw new CloudStorageException("Erro ao enviar arquivo para o Storage: " + e.getMessage(), e);
         }
 
@@ -69,20 +79,26 @@ public class DocumentService {
         document.getMetaData().put("original_filename", originalFilename);
         document.getMetaData().put("storage_path", fullStoragePath);
         document.getMetaData().put("content_type", contentType);
-        document.getMetaData().put("size_bytes", String.valueOf(file.getSize()));
+        document.getMetaData().put("size_bytes", String.valueOf(size));
         document.getMetaData().put("bucket", bucketName);
 
         try {
+            log.debug("Tentando salvar registro do documento no banco de dados...");
             Document savedDoc = documentRepository.save(document);
+            log.info("Documento persistido no banco com sucesso. ID: {}", savedDoc.getId());
             String publicUrl = buildPublicUrl(fullStoragePath);
+
             return DocumentResponseDTO.fromEntity(savedDoc, publicUrl);
-        }catch (DataIntegrityViolationException e) {
+
+        } catch (DataIntegrityViolationException e) {
+            log.error("Erro de integridade ao salvar documento no banco. Título: {}", title, e);
             throw new DatabaseException("Erro de integridade no banco de dados.");
         }
     }
 
     private DocumentType detectDocumentType(String contentType) {
         if (contentType == null) {
+            log.warn("Tentativa de upload com Content-Type nulo.");
             throw new InvalidDocumentTypeException("Tipo do arquivo desconhecido/nulo.");
         }
 
@@ -91,6 +107,7 @@ public class DocumentService {
         } else if (contentType.startsWith("image/")) {
             return DocumentType.IMAGE;
         } else {
+            log.warn("Tentativa de upload de formato não suportado: {}", contentType);
             throw new InvalidDocumentTypeException("O formato do documento não é suportado. Apenas PDF e Imagens são permitidos.");
         }
     }
@@ -128,7 +145,9 @@ public class DocumentService {
     }
 
     private String getFileExtension(String filename) {
+        if (filename == null) return "";
         int lastDotIndex = filename.lastIndexOf(".");
+        if (lastDotIndex == -1) return "";
         return filename.substring(lastDotIndex + 1);
     }
 
