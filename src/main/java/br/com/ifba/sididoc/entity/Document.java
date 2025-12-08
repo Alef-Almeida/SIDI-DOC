@@ -14,7 +14,7 @@ import java.util.Map;
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor
 public class Document extends PersistenceEntity{
-    @Column(nullable = false)
+    @Column(nullable = false, length = 100)
     private String title;
     @Column(nullable = false)
     private LocalDateTime uploadDate;
