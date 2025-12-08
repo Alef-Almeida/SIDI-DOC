@@ -28,7 +28,7 @@ O projeto está configurado com dois perfis de execução:
 
 dev (Padrão): Conecta no PostgreSQL do Docker. Ideal para desenvolvimento e testes locais.
 
-prod: Conecta no Banco e Storage do Supabase. Use com cuidado, pq as suas alterações alteram o banco de todos.
+homolog: Conecta no Banco compartilhado do Supabase. 
 
 Certifique-se de estar rodando em DEV: Abra o arquivo src/main/resources/application.yaml e verifique se a linha active está como dev:
 
