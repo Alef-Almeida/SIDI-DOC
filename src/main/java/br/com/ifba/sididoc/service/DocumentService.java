@@ -27,7 +27,7 @@ import java.util.UUID;
 
 @RequiredArgsConstructor
 @Service
-@Slf4j // 1. Anotação do Lombok para injetar o 'log'
+@Slf4j
 public class DocumentService {
 
     private final DocumentRepository documentRepository;
@@ -145,9 +145,7 @@ public class DocumentService {
     }
 
     private String getFileExtension(String filename) {
-        if (filename == null) return "";
         int lastDotIndex = filename.lastIndexOf(".");
-        if (lastDotIndex == -1) return "";
         return filename.substring(lastDotIndex + 1);
     }
 
