@@ -19,6 +19,7 @@ public class EmailService {
     private String senderName;
 
     //Enviar email para um destinatário
+    //Fazer melhorias de formato de email
     public void send(String to, String subject, String text) {
         SimpleMailMessage msg = new SimpleMailMessage();
 

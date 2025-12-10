@@ -18,6 +18,7 @@ public class UserController {
 
     private final UserService userService;
 
+    //Só é autorizado caso o usuário logado seja SUPER_ADMIN ou SECTOR_ADMIN
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SECTOR_ADMIN')")
     @PostMapping("/register")
     public ResponseEntity<String> registerUser(

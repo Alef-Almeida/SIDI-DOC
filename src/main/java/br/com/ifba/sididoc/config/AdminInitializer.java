@@ -32,6 +32,7 @@ public class AdminInitializer implements CommandLineRunner {
             System.out.println("Nenhum usuario encontrado no sistema, fazendo o cadastro do Admin");
         }
 
+        //Removido a criação em builder para setar os campos de auditoria
         User admin = new User();
         admin.setName("Administrador");
         admin.setEmail("admin@ifba.edu.br");

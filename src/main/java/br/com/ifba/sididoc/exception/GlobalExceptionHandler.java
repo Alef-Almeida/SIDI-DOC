@@ -11,9 +11,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice
+//Exceptions globais para validação e runtime
 public class GlobalExceptionHandler {
 
-    // Erros de validação do DTO (Bean Validation)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidationErrors(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
@@ -27,7 +27,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errors);
     }
 
-    // Captura RuntimeException - inclusive suas mensagens personalizadas
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, String>> handleRuntime(RuntimeException ex) {
         Map<String, String> error = new HashMap<>();

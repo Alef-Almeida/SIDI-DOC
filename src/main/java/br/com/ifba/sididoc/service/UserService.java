@@ -24,6 +24,7 @@ public class UserService {
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
 
+    //Variavel para receber o URL do frontend que será recebido posteriomente
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
@@ -86,6 +87,7 @@ public class UserService {
         user.setIsFirstAccess(false);
 
         userRepository.save(user);
+        //ADD email de confirmação de cadastro
     }
 
     // Solicita redefinição de senha | usuarios ja registrados
