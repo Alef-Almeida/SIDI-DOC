@@ -5,11 +5,11 @@ services:
     image: postgres:17
     container_name: sididoc_db
     ports:
-      - "${DB_PORT}:5432"
+      - "${LOCAL_DB_PORT}:5432"
     environment:
-      - POSTGRES_DB=${DB_NAME}
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+        POSTGRES_DB: ${LOCAL_DB_NAME}
+        POSTGRES_USER: ${LOCAL_DB_USER}
+        POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD}
     volumes:
       - pg_data:/var/lib/postgresql/data
     restart: always
