@@ -3,6 +3,7 @@ package br.com.ifba.sididoc.web.controller;
 import br.com.ifba.sididoc.service.AuthenticationService;
 import br.com.ifba.sididoc.service.UserService;
 import br.com.ifba.sididoc.web.dto.*;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,7 +24,7 @@ public class AuthController {
 
     @PostMapping("/complete-registration")
     public ResponseEntity<String> completeRegistration(
-            @RequestBody CompleteRegistrationDTO dto
+            @Valid @RequestBody CompleteRegistrationDTO dto
     ) {
         userService.completeRegistration(dto.token(), dto.newPassword());
         return ResponseEntity.ok("Senha definida com sucesso.");
@@ -39,7 +40,7 @@ public class AuthController {
 
     @PostMapping("/reset-password")
     public ResponseEntity<String> resetPassword(
-            @RequestBody ResetPasswordDTO dto
+            @Valid @RequestBody ResetPasswordDTO dto
     ) {
         userService.resetPassword(dto.token(), dto.newPassword());
         return ResponseEntity.ok("Senha redefinida com sucesso.");

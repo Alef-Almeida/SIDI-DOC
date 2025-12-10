@@ -21,6 +21,7 @@ public class JwtUtils {
     private final Key key;
     private final long expirationMillis;
 
+    //Variaveis de configuração do JWT
     public JwtUtils(
             @Value("${SECURITY_JWT_SECRET}") String secret,
             @Value("${JWT_EXPIRATION:3600000}") long expirationMillis
@@ -29,9 +30,7 @@ public class JwtUtils {
         this.expirationMillis = expirationMillis;
     }
 
-    // ==============================
-    //     TOKEN DE LOGIN
-    // ==============================
+    //Geração do token JWT de login
     public String generateToken(UserDetails userDetails) {
         Instant now = Instant.now();
 
@@ -39,7 +38,7 @@ public class JwtUtils {
                 .subject(userDetails.getUsername())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(expirationMillis)))
-                .signWith(key) // algoritmo detectado automaticamente
+                .signWith(key)
                 .compact();
     }
 
@@ -52,9 +51,7 @@ public class JwtUtils {
         return username.equalsIgnoreCase(userDetails.getUsername()) && !isTokenExpired(token);
     }
 
-    // ==============================
-    //     TOKEN DE ATIVAÇÃO
-    // ==============================
+    //Token de ativação de conta
     public String generateActivationToken(User user) {
         Instant now = Instant.now();
 
@@ -76,9 +73,7 @@ public class JwtUtils {
         return claims.getSubject();
     }
 
-    // ==============================
-    //     TOKEN DE RESET SENHA
-    // ==============================
+    //Gerando token para redefinição de senha
     public String generateResetPasswordToken(User user) {
         Instant now = Instant.now();
 
@@ -91,6 +86,7 @@ public class JwtUtils {
                 .compact();
     }
 
+    //Fazendo a extração do email do token de redefinição de senha
     public String extractEmailFromResetToken(String token) {
         Claims claims = extractAllClaims(token);
 

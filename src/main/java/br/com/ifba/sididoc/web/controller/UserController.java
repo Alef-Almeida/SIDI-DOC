@@ -3,8 +3,10 @@ package br.com.ifba.sididoc.web.controller;
 import br.com.ifba.sididoc.entity.User;
 import br.com.ifba.sididoc.service.UserService;
 import br.com.ifba.sididoc.web.dto.RegisterUserDTO;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -16,10 +18,11 @@ public class UserController {
 
     private final UserService userService;
 
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SECTOR_ADMIN')")
     @PostMapping("/register")
     public ResponseEntity<String> registerUser(
             @AuthenticationPrincipal UserDetails adminDetails,
-            @RequestBody RegisterUserDTO dto
+            @Valid @RequestBody RegisterUserDTO dto
     ) {
 
         User admin = userService.getByEmail(adminDetails.getUsername());

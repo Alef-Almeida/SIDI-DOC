@@ -41,7 +41,7 @@ public class SpringSecurityConfig {
                         ).permitAll()
 
                         //Protecao de endpoints por role
-                        //.requestMatchers("/users/**").hasAnyRole("SUPER_ADMIN", "SECTOR_ADMIN")
+                        .requestMatchers("/users/**").hasAnyRole("SUPER_ADMIN", "SECTOR_ADMIN")
 
                         .anyRequest().authenticated()
                 );
