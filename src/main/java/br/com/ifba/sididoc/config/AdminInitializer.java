@@ -1,6 +1,7 @@
 package br.com.ifba.sididoc.config;
 
 import br.com.ifba.sididoc.entity.User;
+import br.com.ifba.sididoc.enums.Role;
 import br.com.ifba.sididoc.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
@@ -31,14 +32,18 @@ public class AdminInitializer implements CommandLineRunner {
             System.out.println("Nenhum usuario encontrado no sistema, fazendo o cadastro do Admin");
         }
 
-        User admin = User.builder()
-                .name("Administrador")
-                .email("admin@ifba.edu.br")
-                .passwordHash(passwordEncoder.encode("admin123"))
-                .role(User.Role.SUPER_ADMIN)
-                .isFirstAccess(false)
-                .createdDate(LocalDateTime.now())
-                .build();
+        //Removido a criação em builder para setar os campos de auditoria
+        User admin = new User();
+        admin.setName("Administrador");
+        admin.setEmail("admin@ifba.edu.br");
+        admin.setPasswordHash(passwordEncoder.encode("admin123"));
+        admin.setRole(Role.SUPER_ADMIN);
+        admin.setIsFirstAccess(false);
+
+        admin.setCreatedAt(LocalDateTime.now());
+        admin.setLastModifiedAt(LocalDateTime.now());
+        admin.setCreatedBy("...");
+        admin.setLastModifiedBy("...");
 
         userRepository.save(admin);
 

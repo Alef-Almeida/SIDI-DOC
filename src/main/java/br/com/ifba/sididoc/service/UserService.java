@@ -1,6 +1,7 @@
 package br.com.ifba.sididoc.service;
 
 import br.com.ifba.sididoc.entity.*;
+import br.com.ifba.sididoc.enums.Role;
 import br.com.ifba.sididoc.jwt.JwtUtils;
 import br.com.ifba.sididoc.repository.SectorRepository;
 import br.com.ifba.sididoc.repository.UserRepository;
@@ -23,13 +24,14 @@ public class UserService {
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
 
+    //Variavel para receber o URL do frontend que será recebido posteriomente
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
     // Registra novo usuário e envia e-mail de ativação
     public User registerUser(User adminUser, RegisterUserDTO dto) {
-        if (adminUser.getRole() != User.Role.SUPER_ADMIN &&
-                adminUser.getRole() != User.Role.SECTOR_ADMIN) {
+        if (adminUser.getRole() != Role.SUPER_ADMIN &&
+                adminUser.getRole() != Role.SECTOR_ADMIN) {
             throw new RuntimeException("Você não tem permissão para criar usuários.");
         }
 
@@ -46,8 +48,6 @@ public class UserService {
                 .sectors(sectors)
                 .isFirstAccess(true)
                 .passwordHash(null)
-                .createBy(adminUser.getEmail())
-                .createdDate(LocalDateTime.now())
                 .build();
 
         user = userRepository.save(user);
@@ -77,6 +77,7 @@ public class UserService {
 
     // Completa o registro definindo a senha inicial
     public void completeRegistration(String token, String newPassword) {
+
         String email = jwtUtils.extractEmailFromActivationToken(token);
 
         User user = userRepository.findByEmail(email)
@@ -84,9 +85,9 @@ public class UserService {
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setIsFirstAccess(false);
-        user.setLastModifiedDate(LocalDateTime.now());
 
         userRepository.save(user);
+        //ADD email de confirmação de cadastro
     }
 
     // Solicita redefinição de senha | usuarios ja registrados
@@ -119,7 +120,6 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
-        user.setLastModifiedDate(LocalDateTime.now());
 
         userRepository.save(user);
     }
