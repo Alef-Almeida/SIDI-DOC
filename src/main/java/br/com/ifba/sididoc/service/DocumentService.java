@@ -10,6 +10,7 @@ import br.com.ifba.sididoc.exception.InvalidDocumentTypeException;
 import br.com.ifba.sididoc.repository.DocumentRepository;
 import br.com.ifba.sididoc.web.dto.DocumentResponseDTO;
 import br.com.ifba.sididoc.web.dto.UploadDocumentDTO;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +24,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -152,5 +154,16 @@ public class DocumentService {
     private String generateStoragePath(String filename) {
         LocalDateTime now = LocalDateTime.now();
         return String.format("%d/%02d/%s", now.getYear(), now.getMonthValue(), filename);
+    }
+
+    @Transactional(readOnly = true)
+    public Document findById(Long id) {
+        return documentRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Documento não encontrado com ID: " + id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Document> findAll() {
+        return documentRepository.findAll();
     }
 }
