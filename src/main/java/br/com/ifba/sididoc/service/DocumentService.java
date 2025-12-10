@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -94,6 +96,23 @@ public class DocumentService {
             log.error("Erro de integridade ao salvar documento no banco. Título: {}", title, e);
             throw new DatabaseException("Erro de integridade no banco de dados.");
         }
+    }
+
+    @Transactional(readOnly = true)
+    public Page<DocumentResponseDTO> findAll(Pageable pageable) {
+        log.info("Buscando lista de documentos. Página: {}, Tamanho: {}", pageable.getPageNumber(), pageable.getPageSize());
+
+        return documentRepository.findAll(pageable)
+                .map(document -> {
+                    String storagePath = document.getMetaData().get("storage_path");
+
+                    String publicUrl = null;
+                    if (storagePath != null && !storagePath.isBlank()) {
+                        publicUrl = buildPublicUrl(storagePath);
+                    }
+
+                    return DocumentResponseDTO.fromEntity(document, publicUrl);
+                });
     }
 
     private DocumentType detectDocumentType(String contentType) {
