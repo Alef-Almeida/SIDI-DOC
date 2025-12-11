@@ -1,9 +1,6 @@
 package br.com.ifba.sididoc.web.exception;
 
-import br.com.ifba.sididoc.exception.CloudStorageException;
-import br.com.ifba.sididoc.exception.DatabaseException;
-import br.com.ifba.sididoc.exception.InvalidDocumentTitleException;
-import br.com.ifba.sididoc.exception.InvalidDocumentTypeException;
+import br.com.ifba.sididoc.exception.*;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -62,6 +59,15 @@ public class ApiExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new ErrorMessage(request, HttpStatus.BAD_REQUEST, Instant.now(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(SectorAccessDeniedException.class)
+    public ResponseEntity<ErrorMessage> handleSectorAccessDeniedException(SectorAccessDeniedException ex, HttpServletRequest request) {
+        log.warn("Api Error - Acesso negado ao setor: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorMessage(request, HttpStatus.FORBIDDEN, Instant.now(), ex.getMessage()));
     }
 
 }

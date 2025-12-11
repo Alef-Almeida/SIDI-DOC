@@ -2,12 +2,18 @@ package br.com.ifba.sididoc.service;
 
 import br.com.ifba.sididoc.entity.*;
 import br.com.ifba.sididoc.enums.Role;
+import br.com.ifba.sididoc.exception.ResourceNotFoundException;
+import br.com.ifba.sididoc.exception.SectorAccessDeniedException;
+import br.com.ifba.sididoc.jwt.JwtToken;
 import br.com.ifba.sididoc.jwt.JwtUtils;
 import br.com.ifba.sididoc.repository.SectorRepository;
 import br.com.ifba.sididoc.repository.UserRepository;
 import br.com.ifba.sididoc.web.dto.RegisterUserDTO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +22,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserService {
 
     private final UserRepository userRepository;
@@ -23,8 +30,8 @@ public class UserService {
     private final JwtUtils jwtUtils;
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
+    private final UserDetailsService userDetailsService;
 
-    //Variavel para receber o URL do frontend que será recebido posteriomente
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
@@ -128,6 +135,35 @@ public class UserService {
     public User getByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado: " + email));
+    }
+
+    public JwtToken switchSector(String currentToken, Long newSectorId) {
+        String cleanToken = currentToken.replace("Bearer ", "");
+        String email = jwtUtils.extractUsername(cleanToken);
+
+        log.info("Solicitação de troca de contexto: Usuário [{}] tentando acessar o Setor ID [{}]", email, newSectorId);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> {
+                    log.error("Erro crítico na troca de setor: Usuário com email [{}] não encontrado no banco.", email);
+                    return new ResourceNotFoundException("Usuário não encontrado.");
+                });
+
+        boolean hasAccess = user.getSectors().stream()
+                .anyMatch(s -> s.getId().equals(newSectorId));
+
+        if (!hasAccess) {
+            log.warn("ACESSO NEGADO: O usuário [{}] tentou acessar o Setor ID [{}] mas não possui permissão.", email, newSectorId);
+            throw new SectorAccessDeniedException("Usuário não tem acesso a este setor.");
+        }
+
+        UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+
+        String newToken = jwtUtils.generateToken(userDetails, newSectorId);
+
+        log.info("Troca de setor realizada com sucesso. Usuário [{}] agora está operando no Setor ID [{}].", email, newSectorId);
+
+        return new JwtToken(newToken);
     }
 
 }
