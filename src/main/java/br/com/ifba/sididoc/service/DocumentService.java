@@ -8,7 +8,6 @@ import br.com.ifba.sididoc.exception.DatabaseException;
 import br.com.ifba.sididoc.exception.InvalidDocumentTitleException;
 import br.com.ifba.sididoc.exception.InvalidDocumentTypeException;
 import br.com.ifba.sididoc.repository.DocumentRepository;
-import br.com.ifba.sididoc.web.dto.DocumentResponseDTO;
 import br.com.ifba.sididoc.web.dto.UploadDocumentDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +22,6 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -34,15 +32,16 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final S3Client s3Client;
-
     @Value("${supabase.bucket.name}")
     private String bucketName;
-
     @Value("${supabase.project.url}")
     private String supabaseProjectUrl;
+    private final DocumentCategoryService documentCategoryService;
+    private final SectorService sectorService;
+
 
     @Transactional
-    public DocumentResponseDTO uploadDocument(UploadDocumentDTO dto) throws IOException {
+    public Document uploadDocument(UploadDocumentDTO dto, Long sectorId) {
         MultipartFile file = dto.file();
         String originalFilename = file.getOriginalFilename();
         String contentType = file.getContentType();
@@ -74,6 +73,8 @@ public class DocumentService {
         }
 
         Document document = new Document();
+        document.setCategory(documentCategoryService.findById(dto.categoryId()));
+        document.setSector(sectorService.findReferenceById(sectorId));
         document.setTitle(title);
         document.setType(type);
         document.setUploadDate(LocalDateTime.now());
@@ -88,9 +89,9 @@ public class DocumentService {
             log.debug("Tentando salvar registro do documento no banco de dados...");
             Document savedDoc = documentRepository.save(document);
             log.info("Documento persistido no banco com sucesso. ID: {}", savedDoc.getId());
-            String publicUrl = buildPublicUrl(fullStoragePath);
 
-            return DocumentResponseDTO.fromEntity(savedDoc, publicUrl);
+            savedDoc.setPublicUrl(buildPublicUrl(fullStoragePath));
+            return savedDoc;
 
         } catch (DataIntegrityViolationException e) {
             log.error("Erro de integridade ao salvar documento no banco. Título: {}", title, e);
@@ -99,20 +100,19 @@ public class DocumentService {
     }
 
     @Transactional(readOnly = true)
-    public Page<DocumentResponseDTO> findAll(Pageable pageable) {
+    public Page<Document> findAll(Pageable pageable) {
         log.info("Buscando lista de documentos. Página: {}, Tamanho: {}", pageable.getPageNumber(), pageable.getPageSize());
 
-        return documentRepository.findAll(pageable)
-                .map(document -> {
-                    String storagePath = document.getMetaData().get("storage_path");
+        Page<Document> page = documentRepository.findAll(pageable);
 
-                    String publicUrl = null;
-                    if (storagePath != null && !storagePath.isBlank()) {
-                        publicUrl = buildPublicUrl(storagePath);
-                    }
+        page.getContent().forEach(doc -> {
+            String storagePath = doc.getMetaData().get("storage_path");
+            if (storagePath != null && !storagePath.isBlank()) {
+                doc.setPublicUrl(buildPublicUrl(storagePath));
+            }
+        });
 
-                    return DocumentResponseDTO.fromEntity(document, publicUrl);
-                });
+        return page;
     }
 
     private DocumentType detectDocumentType(String contentType) {

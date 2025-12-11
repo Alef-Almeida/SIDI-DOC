@@ -12,16 +12,14 @@ public record DocumentResponseDTO(
         Long sizeBytes,
         String downloadUrl
 ) {
-    public static DocumentResponseDTO fromEntity(Document doc, String generatedUrl) {
-        String sizeStr = doc.getMetaData().getOrDefault("size_bytes", "0");
-
+    public static DocumentResponseDTO fromEntity(Document doc) {
         return new DocumentResponseDTO(
                 doc.getTitle(),
                 doc.getType().name(),
                 doc.getStatus().name(),
                 doc.getUploadDate(),
-                Long.valueOf(sizeStr),
-                generatedUrl
+                Long.valueOf(doc.getMetaData().get("size_bytes")),
+                doc.getPublicUrl()
         );
     }
 }
