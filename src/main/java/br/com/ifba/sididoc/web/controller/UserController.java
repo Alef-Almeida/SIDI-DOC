@@ -1,10 +1,10 @@
 package br.com.ifba.sididoc.web.controller;
 
 import br.com.ifba.sididoc.entity.User;
-import br.com.ifba.sididoc.jwt.JwtToken;
 import br.com.ifba.sididoc.service.UserService;
 import br.com.ifba.sididoc.web.dto.RegisterUserDTO;
 import br.com.ifba.sididoc.web.dto.SectorResponseDTO;
+import br.com.ifba.sididoc.web.dto.UserResponseDTO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +21,12 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+
+    @GetMapping("/me")
+    public ResponseEntity<UserResponseDTO> me() {
+        User user = userService.me();
+        return ResponseEntity.ok(UserResponseDTO.fromEntity(user));
+    }
 
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SECTOR_ADMIN')")
     @PostMapping("/register")

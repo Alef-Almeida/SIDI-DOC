@@ -2,12 +2,15 @@ package br.com.ifba.sididoc.service;
 
 import br.com.ifba.sididoc.entity.*;
 import br.com.ifba.sididoc.enums.Role;
+import br.com.ifba.sididoc.exception.ResourceAlreadyExistsException;
+import br.com.ifba.sididoc.exception.ResourceInactiveException;
 import br.com.ifba.sididoc.exception.ResourceNotFoundException;
 import br.com.ifba.sididoc.exception.SectorAccessDeniedException;
 import br.com.ifba.sididoc.jwt.JwtToken;
 import br.com.ifba.sididoc.jwt.JwtUtils;
 import br.com.ifba.sididoc.repository.SectorRepository;
 import br.com.ifba.sididoc.repository.UserRepository;
+import br.com.ifba.sididoc.util.UserUtils;
 import br.com.ifba.sididoc.web.dto.RegisterUserDTO;
 import br.com.ifba.sididoc.web.dto.SectorResponseDTO;
 import jakarta.persistence.EntityNotFoundException;
@@ -20,7 +23,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -186,4 +188,9 @@ public class UserService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public User me() {
+        String email = UserUtils.getAuthenticatedUserEmail();
+        return findByEmail(email);
+    }
 }
