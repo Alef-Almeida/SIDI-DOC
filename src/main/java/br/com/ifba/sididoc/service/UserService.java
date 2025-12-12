@@ -188,6 +188,61 @@ public class UserService {
                 .toList();
     }
 
+    public User findById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado."));
+    }
+
+    @Transactional(readOnly = true)
+    public User findByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado com o email: " + email));
+    }
+
+    @Transactional
+    public void addToSector(String sectorCode, String userEmail) {
+        log.info("Vinculando usuário [{}] ao setor [{}]", userEmail, sectorCode);
+
+        Sector sector = sectorRepository.findByCode(sectorCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Setor não encontrado com código: " + sectorCode));
+
+        if (!sector.isActive()) {
+            throw new ResourceInactiveException("O setor está desativado.");
+        }
+
+        User user = findByEmail(userEmail);
+
+        if (user.getSectors().contains(sector)) {
+            throw new ResourceAlreadyExistsException("Usuário já está vinculado a este setor.");
+        }
+
+        user.getSectors().add(sector);
+        sector.getUsers().add(user);
+
+        userRepository.save(user);
+        log.info("Vínculo salvo com sucesso.");
+    }
+
+    @Transactional
+    public void removeFromSector(String sectorCode, String userEmail) {
+        log.info("Removendo vínculo: Usuário [{}] do Setor [{}]", userEmail, sectorCode);
+
+        Sector sector = sectorRepository.findByCode(sectorCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Setor não encontrado com código: " + sectorCode));
+
+        User user = findByEmail(userEmail);
+
+        if (!user.getSectors().contains(sector)) {
+            throw new ResourceNotFoundException("O usuário não pertence a este setor.");
+        }
+
+        user.getSectors().remove(sector);
+        sector.getUsers().remove(user);
+
+        userRepository.save(user);
+        log.info("Vínculo removido com sucesso.");
+    }
+
     @Transactional(readOnly = true)
     public User me() {
         String email = UserUtils.getAuthenticatedUserEmail();

@@ -52,4 +52,18 @@ public class UserController {
         // pois não é um erro, o usuário só não tem setor ainda.
         return ResponseEntity.ok(list);
     }
+
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SECTOR_ADMIN')")
+    @PostMapping("/add-to-sector")
+    public ResponseEntity<Void> addUserToSector(@RequestParam String email, @RequestParam String sectorCode) {
+        userService.addToSector(sectorCode, email);
+        return ResponseEntity.ok().build();
+    }
+
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SECTOR_ADMIN')")
+    @DeleteMapping("/remove-from-sector")
+    public ResponseEntity<Void> removeUserFromSector(@RequestParam String email, @RequestParam String sectorCode) {
+        userService.removeFromSector(sectorCode, email);
+        return ResponseEntity.noContent().build();
+    }
 }
