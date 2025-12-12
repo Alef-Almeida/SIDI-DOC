@@ -17,6 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.List;
 
 @RestController
 @RequestMapping("/documents")
@@ -40,5 +41,16 @@ public class DocumentController {
         Page<Document> documentsPage = documentService.findAll(pageable);
         Page<DocumentResponseDTO> dtoPage = documentsPage.map(DocumentResponseDTO::fromEntity);
         return ResponseEntity.ok(dtoPage);
+    }
+
+    @GetMapping(value = "/filter")
+    public ResponseEntity<List<DocumentResponseDTO>> findBySectorAndCategory(
+            @RequestParam(value = "sectorId") Long sectorId,
+            @RequestParam(value = "categoryId") Long categoryId) {
+
+        List<DocumentResponseDTO> results = documentService.findBySectorAndCategory(sectorId, categoryId);
+
+        // Retorna a lista (pode ser vazia, o que é um resultado válido 200 OK)
+        return ResponseEntity.ok(results);
     }
 }

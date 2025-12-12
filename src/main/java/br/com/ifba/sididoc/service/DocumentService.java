@@ -8,6 +8,7 @@ import br.com.ifba.sididoc.exception.DatabaseException;
 import br.com.ifba.sididoc.exception.InvalidDocumentTitleException;
 import br.com.ifba.sididoc.exception.InvalidDocumentTypeException;
 import br.com.ifba.sididoc.repository.DocumentRepository;
+import br.com.ifba.sididoc.web.dto.DocumentResponseDTO;
 import br.com.ifba.sididoc.web.dto.UploadDocumentDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -171,5 +173,15 @@ public class DocumentService {
     private String generateStoragePath(String filename) {
         LocalDateTime now = LocalDateTime.now();
         return String.format("%d/%02d/%s", now.getYear(), now.getMonthValue(), filename);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DocumentResponseDTO> findBySectorAndCategory(Long sectorId, Long categoryId) {
+        log.info("Buscando documentos (Ordem Alfabética) - Setor: {}, Categoria: {}", sectorId, categoryId);
+
+        return documentRepository.findBySector_IdAndCategory_IdOrderByTitleAsc(sectorId, categoryId)
+                .stream()
+                .map(DocumentResponseDTO::fromEntity)
+                .toList();
     }
 }
