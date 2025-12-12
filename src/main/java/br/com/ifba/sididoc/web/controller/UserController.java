@@ -4,6 +4,7 @@ import br.com.ifba.sididoc.entity.User;
 import br.com.ifba.sididoc.jwt.JwtToken;
 import br.com.ifba.sididoc.service.UserService;
 import br.com.ifba.sididoc.web.dto.RegisterUserDTO;
+import br.com.ifba.sididoc.web.dto.SectorResponseDTO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +12,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/users")
@@ -31,5 +34,16 @@ public class UserController {
         userService.registerUser(admin, dto);
 
         return ResponseEntity.ok("Usuário criado com sucesso. E-mail de ativação enviado.");
+    }
+
+    @GetMapping(value = "/{userId}/sectors")
+    public ResponseEntity<List<SectorResponseDTO>> findSectorsByUser(
+            @PathVariable(value = "userId") Long userId) {
+
+        List<SectorResponseDTO> list = userService.findSectorsByUserId(userId);
+
+        // Se a lista for vazia, ainda retornamos 200 OK com array vazio [],
+        // pois não é um erro, o usuário só não tem setor ainda.
+        return ResponseEntity.ok(list);
     }
 }

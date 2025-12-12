@@ -9,6 +9,8 @@ import br.com.ifba.sididoc.jwt.JwtUtils;
 import br.com.ifba.sididoc.repository.SectorRepository;
 import br.com.ifba.sididoc.repository.UserRepository;
 import br.com.ifba.sididoc.web.dto.RegisterUserDTO;
+import br.com.ifba.sididoc.web.dto.SectorResponseDTO;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +18,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -164,6 +167,23 @@ public class UserService {
         log.info("Troca de setor realizada com sucesso. Usuário [{}] agora está operando no Setor ID [{}].", email, newSectorId);
 
         return new JwtToken(newToken);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SectorResponseDTO> findSectorsByUserId(Long userId) {
+        log.info("Buscando setores para o usuário ID: {}", userId);
+
+        // Garante que o usuário já existe
+        if (!userRepository.existsById(userId)) {
+            throw new EntityNotFoundException("Usuário não encontrado");
+        }
+
+        // "SELECT s FROM User u JOIN u.sectors s WHERE u.id = :userId"
+        List<Sector> sectors = sectorRepository.findAllByUserId(userId);
+
+        return sectors.stream()
+                .map(SectorResponseDTO::fromEntity)
+                .toList();
     }
 
 }
