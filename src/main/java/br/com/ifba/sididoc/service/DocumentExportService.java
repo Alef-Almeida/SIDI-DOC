@@ -22,58 +22,70 @@ public class DocumentExportService {
     private static final Font NORMAL_FONT = FontFactory.getFont(FontFactory.HELVETICA, 11);
 
     public void generatePdfReport(Document doc, OutputStream outputStream) throws DocumentException {
-        com.lowagie.text.Document pdf = new com.lowagie.text.Document();
-        PdfWriter.getInstance(pdf, outputStream);
+            System.out.println("--- INICIANDO GERAÇÃO DO PDF ---");
+             com.lowagie.text.Document pdf = new com.lowagie.text.Document();
 
-        pdf.open();
+             try {
+                 PdfWriter.getInstance(pdf, outputStream);
+                 pdf.open();
 
-        //titulo
-        Paragraph title = new Paragraph("Relatório de Documento Digitalizado", TITLE_FONT);
-        title.setAlignment(Element.ALIGN_CENTER);
-        title.setSpacingAfter(20);
-        pdf.add(title);
+                 //titulo
+                 Paragraph title = new Paragraph("Relatório de documento digitalizado", TITLE_FONT);
+                 title.setAlignment(Element.ALIGN_CENTER);
+                 title.setSpacingAfter(20);
+                 pdf.add(new Paragraph("Relatório do documento ID: " + doc.getId()));
 
-        //informações principais
-        PdfPTable table = new PdfPTable(2);
-        table.setWidthPercentage(100);
-        table.setSpacingAfter(15);
-        table.setWidths(new float[]{1, 3});
+                 //informações principais
+                 PdfPTable table = new PdfPTable(2);
+                 table.setWidthPercentage(100);
+                /* table.setSpacingAfter(15);
+                 table.setWidths(new float[]{1, 3});*/
 
-        addTableRow(table, "ID:", String.valueOf(doc.getId()));
-        addTableRow(table, "Título:", doc.getTitle());
-        addTableRow(table, "Data Upload:", doc.getUploadDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
-        addTableRow(table, "Tipo:", doc.getType() != null ? doc.getType().name() : "N/A");
-        addTableRow(table, "Status:", doc.getStatus() != null ? doc.getStatus().name() : "N/A");
-        addTableRow(table, "OCR:", doc.getOcrConfidence() != null ? doc.getOcrConfidence() + "%" : "Não processado");
+                 System.out.println("Escrevendo dados...");
+                 addTableRow(table, "ID:", String.valueOf(doc.getId()));
+                 addTableRow(table, "Título:", doc.getTitle());
+                 addTableRow(table, "Data Upload:", doc.getUploadDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
+                 addTableRow(table, "Tipo:", doc.getType() != null ? doc.getType().name() : "N/A");
+                 addTableRow(table, "Status:", doc.getStatus() != null ? doc.getStatus().name() : "N/A");
+                 addTableRow(table, "OCR:", doc.getOcrConfidence() != null ? doc.getOcrConfidence() + "%" : "Não processado");
 
-        pdf.add(table);
+                 pdf.add(table);
 
-        //metadados
-        if (!doc.getMetaData().isEmpty()) {
-            Paragraph metaHeader = new Paragraph("Metadados do Arquivo:", HEADER_FONT);
-            metaHeader.setSpacingAfter(5);
-            pdf.add(metaHeader);
+                 //metadados
+                 System.out.println("Escrevendo metadados...");
+                 if (doc.getMetaData() != null) {
+                     for (var entry : doc.getMetaData().entrySet()) {
+                         pdf.add(new Paragraph(entry.getKey() + ": " + entry.getValue()));
+                     }
+                 }
 
-            PdfPTable metaTable = new PdfPTable(2);
-            metaTable.setWidthPercentage(100);
-            metaTable.setSpacingAfter(15);
+                 //conteudo extraido
+                 pdf.add(new Paragraph("Conteúdo Extraído (OCR):", HEADER_FONT));
+                 String textContent = doc.getExtractedText() != null && !doc.getExtractedText().isBlank()
+                         ? doc.getExtractedText()
+                         : "[Nenhum texto extraído ou OCR pendente]";
 
-            doc.getMetaData().forEach((key, value) -> addTableRow(metaTable, key, value));
-            pdf.add(metaTable);
-        }
+                 Paragraph textPara = new Paragraph(textContent, NORMAL_FONT);
+                 textPara.setSpacingBefore(10);
+                 pdf.add(textPara);
 
-        //conteudo extraido
-        pdf.add(new Paragraph("Conteúdo Extraído (OCR):", HEADER_FONT));
-        String textContent = doc.getExtractedText() != null && !doc.getExtractedText().isBlank()
-                ? doc.getExtractedText()
-                : "[Nenhum texto extraído ou OCR pendente]";
+                 pdf.close();
 
-        Paragraph textPara = new Paragraph(textContent, NORMAL_FONT);
-        textPara.setSpacingBefore(10);
-        pdf.add(textPara);
+            } catch (Exception e) {
+                 System.out.println("ERRO FATAL: " + e.getMessage());
+                 e.printStackTrace();
 
-        pdf.close();
-    }
+                 try {
+                     pdf.add(new Paragraph("ERRO AO GERAR: " + e.getMessage()));
+                 } catch (Exception ex) {
+                 }
+             } finally {
+                 if (pdf.isOpen()) {
+                     pdf.close();
+                     System.out.println("PDF Fechado.");
+                 }
+             }
+         }
 
     public void generateZipExport(List<Document> documents, OutputStream outputStream) throws IOException {
         try (ZipOutputStream zos = new ZipOutputStream(outputStream)) {
