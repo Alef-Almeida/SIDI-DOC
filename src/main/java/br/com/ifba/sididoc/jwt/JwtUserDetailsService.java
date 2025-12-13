@@ -20,17 +20,6 @@ public class JwtUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado: " + email));
 
-        //Agora o Jwt reconhece o role e bloqueia as transações feitas para quem não tem permissão
-        SimpleGrantedAuthority authority =
-                new SimpleGrantedAuthority("ROLE_" + user.getRole().name());
-
-        return org.springframework.security.core.userdetails.User
-                .builder()
-                .username(user.getEmail())
-                .password(user.getPasswordHash())
-                .authorities(List.of(authority))
-                .accountLocked(false)
-                .disabled(false)
-                .build();
+        return CustomUserDetails.build(user);
     }
 }

@@ -25,13 +25,13 @@ public class AuthenticationService {
         );
 
         UserDetails principal = (UserDetails) authentication.getPrincipal();
-        String token = jwtUtils.generateToken(principal);
+        String token = jwtUtils.generateToken(principal, null);
 
         String role = principal.getAuthorities().stream()
                 .findFirst()
                 .map(Object::toString)
                 .orElse("UNKNOWN");
 
-        return new LoginResponse(token, role);
+        return new LoginResponse(token, role, principal.getUsername(), null);
     }
 }

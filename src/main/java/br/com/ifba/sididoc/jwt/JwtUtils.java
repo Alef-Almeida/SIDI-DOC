@@ -31,15 +31,20 @@ public class JwtUtils {
     }
 
     //Geração do token JWT de login
-    public String generateToken(UserDetails userDetails) {
+    public String generateToken(UserDetails userDetails, Long sectorId) {
         Instant now = Instant.now();
 
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(userDetails.getUsername())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(expirationMillis)))
-                .signWith(key)
-                .compact();
+                .signWith(key);
+
+        if (sectorId != null) {
+            builder.claim("sectorId", sectorId);
+        }
+
+        return builder.compact();
     }
 
     public String extractUsername(String token) {
@@ -116,5 +121,17 @@ public class JwtUtils {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    public Long extractSectorId(String token) {
+        return extractClaim(token, claims -> {
+            Object sectorId = claims.get("sectorId");
+
+            if (sectorId instanceof Number) {
+                return ((Number) sectorId).longValue();
+            }
+
+            return null;
+        });
     }
 }
