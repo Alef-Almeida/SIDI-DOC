@@ -1,125 +1,131 @@
 package br.com.ifba.sididoc.service;
 
 import br.com.ifba.sididoc.entity.Document;
-import com.lowagie.text.*;
-import com.lowagie.text.pdf.*;
+import br.com.ifba.sididoc.repository.DocumentRepository;
+import br.com.ifba.sididoc.exception.CloudStorageException;
+import br.com.ifba.sididoc.exception.ResourceNotFoundException;
+import br.com.ifba.sididoc.web.dto.DocumentExportDTO; // Import atualizado
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class DocumentExportService {
 
-    private static final Font TITLE_FONT = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
-    private static final Font HEADER_FONT = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-    private static final Font NORMAL_FONT = FontFactory.getFont(FontFactory.HELVETICA, 11);
+    private final DocumentRepository documentRepository;
+    private final S3Client s3Client;
 
-    public void generatePdfReport(Document doc, OutputStream outputStream) throws DocumentException {
-            System.out.println("--- INICIANDO GERAÇÃO DO PDF ---");
-             com.lowagie.text.Document pdf = new com.lowagie.text.Document();
+    @Value("${supabase.bucket-name}")
+    private String bucketName;
 
-             try {
-                 PdfWriter.getInstance(pdf, outputStream);
-                 pdf.open();
+    @Transactional(readOnly = true)
+    public DocumentExportDTO exportDocument(Long documentId) {
+        log.info("Iniciando exportação do documento ID: {}", documentId);
 
-                 //titulo
-                 Paragraph title = new Paragraph("Relatório de documento digitalizado", TITLE_FONT);
-                 title.setAlignment(Element.ALIGN_CENTER);
-                 title.setSpacingAfter(20);
-                 pdf.add(new Paragraph("Relatório do documento ID: " + doc.getId()));
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Documento não encontrado com ID: " + documentId));
 
-                 //informações principais
-                 PdfPTable table = new PdfPTable(2);
-                 table.setWidthPercentage(100);
-                /* table.setSpacingAfter(15);
-                 table.setWidths(new float[]{1, 3});*/
+        return downloadFromStorage(document);
+    }
 
-                 System.out.println("Escrevendo dados...");
-                 addTableRow(table, "ID:", String.valueOf(doc.getId()));
-                 addTableRow(table, "Título:", doc.getTitle());
-                 addTableRow(table, "Data Upload:", doc.getUploadDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
-                 addTableRow(table, "Tipo:", doc.getType() != null ? doc.getType().name() : "N/A");
-                 addTableRow(table, "Status:", doc.getStatus() != null ? doc.getStatus().name() : "N/A");
-                 addTableRow(table, "OCR:", doc.getOcrConfidence() != null ? doc.getOcrConfidence() + "%" : "Não processado");
+    @Transactional(readOnly = true)
+    public DocumentExportDTO exportDocumentsAsZip(List<Long> documentIds) {
+        log.info("Iniciando exportação ZIP para {} documentos", documentIds.size());
 
-                 pdf.add(table);
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             ZipOutputStream zos = new ZipOutputStream(baos)) {
 
-                 //metadados
-                 System.out.println("Escrevendo metadados...");
-                 if (doc.getMetaData() != null) {
-                     for (var entry : doc.getMetaData().entrySet()) {
-                         pdf.add(new Paragraph(entry.getKey() + ": " + entry.getValue()));
-                     }
-                 }
-
-                 //conteudo extraido
-                 pdf.add(new Paragraph("Conteúdo Extraído (OCR):", HEADER_FONT));
-                 String textContent = doc.getExtractedText() != null && !doc.getExtractedText().isBlank()
-                         ? doc.getExtractedText()
-                         : "[Nenhum texto extraído ou OCR pendente]";
-
-                 Paragraph textPara = new Paragraph(textContent, NORMAL_FONT);
-                 textPara.setSpacingBefore(10);
-                 pdf.add(textPara);
-
-                 pdf.close();
-
-            } catch (Exception e) {
-                 System.out.println("ERRO FATAL: " + e.getMessage());
-                 e.printStackTrace();
-
-                 try {
-                     pdf.add(new Paragraph("ERRO AO GERAR: " + e.getMessage()));
-                 } catch (Exception ex) {
-                 }
-             } finally {
-                 if (pdf.isOpen()) {
-                     pdf.close();
-                     System.out.println("PDF Fechado.");
-                 }
-             }
-         }
-
-    public void generateZipExport(List<Document> documents, OutputStream outputStream) throws IOException {
-        try (ZipOutputStream zos = new ZipOutputStream(outputStream)) {
-            for (Document doc : documents) {
-                //nome do arquivo
-                String safeTitle = doc.getTitle().replaceAll("[^a-zA-Z0-9.-]", "_");
-                String entryName = safeTitle + "_" + doc.getId() + ".pdf";
-
-                ZipEntry zipEntry = new ZipEntry(entryName);
-                zos.putNextEntry(zipEntry);
-
-                ByteArrayOutputStream pdfBuffer = new ByteArrayOutputStream();
+            for (Long id : documentIds) {
                 try {
-                    generatePdfReport(doc, pdfBuffer);
-                    zos.write(pdfBuffer.toByteArray());
-                } catch (DocumentException e) {
-                    zos.write(("Erro ao gerar PDF para ID " + doc.getId()).getBytes());
-                }
+                    Document document = documentRepository.findById(id).orElse(null);
 
-                zos.closeEntry();
+                    if (document == null) {
+                        log.warn("Documento ID {} não encontrado. Pulando...", id);
+                        continue;
+                    }
+
+                    // Obtém o DTO do arquivo individual
+                    DocumentExportDTO fileDto = downloadFromStorage(document);
+
+                    // Cria nome único no ZIP
+                    String zipEntryName = document.getId() + "_" + fileDto.filename();
+
+                    ZipEntry entry = new ZipEntry(zipEntryName);
+                    zos.putNextEntry(entry);
+                    zos.write(fileDto.data());
+                    zos.closeEntry();
+
+                } catch (Exception e) {
+                    log.error("Erro ao processar documento ID {} para o ZIP", id, e);
+                }
             }
+
             zos.finish();
+
+            // Retorna o DTO com o binário do ZIP
+            return new DocumentExportDTO(
+                    baos.toByteArray(),
+                    "documentos_exportados.zip",
+                    "application/zip"
+            );
+
+        } catch (IOException e) {
+            throw new CloudStorageException("Erro fatal ao criar arquivo ZIP.", e);
         }
     }
 
-    private void addTableRow(PdfPTable table, String header, String value) {
-        PdfPCell headerCell = new PdfPCell(new Phrase(header, HEADER_FONT));
-        headerCell.setBackgroundColor(Color.LIGHT_GRAY);
-        headerCell.setPadding(5);
+    //Método auxiliar para buscar no S3.
+    private DocumentExportDTO downloadFromStorage(Document document) {
 
-        PdfPCell valueCell = new PdfPCell(new Phrase(value, NORMAL_FONT));
-        valueCell.setPadding(5);
+        String storagePath = document.getMetaData().get("storage_path");
+        String originalFilename = document.getMetaData().get("original_filename");
+        String contentType = document.getMetaData().get("content_type");
 
-        table.addCell(headerCell);
-        table.addCell(valueCell);
+        if (storagePath == null) {
+            throw new CloudStorageException("Metadado 'storage_path' ausente no documento " + document.getId());
+        }
+
+        String finalKey = extractKey(storagePath);
+        log.info("Download S3 -> Path Original: [{}], Key Limpa: [{}]", storagePath, finalKey);
+
+        if (originalFilename == null) originalFilename = "doc_" + document.getId() + ".pdf";
+        if (contentType == null) contentType = "application/pdf";
+
+        try {
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(finalKey)
+                    .build();
+
+            ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(getObjectRequest);
+            byte[] data = objectBytes.asByteArray();
+
+            return new DocumentExportDTO(data, originalFilename, contentType);
+
+        } catch (Exception e) {
+            log.error("Erro S3 ao baixar key: {}", storagePath, e);
+            throw new CloudStorageException("Falha na comunicação com o Storage.", e);
+        }
+    }
+
+    private String extractKey(String path) {
+        if (path.contains(bucketName + "/")) {
+            return path.substring(path.indexOf(bucketName + "/") + bucketName.length() + 1);
+        }
+        return path;
     }
 }

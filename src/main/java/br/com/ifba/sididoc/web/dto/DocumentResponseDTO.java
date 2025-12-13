@@ -5,6 +5,7 @@ import br.com.ifba.sididoc.entity.Document;
 import java.time.LocalDateTime;
 
 public record DocumentResponseDTO(
+        Long id,
         String title,
         String type,
         String status,
@@ -16,6 +17,7 @@ public record DocumentResponseDTO(
         String sizeStr = doc.getMetaData().getOrDefault("size_bytes", "0");
 
         return new DocumentResponseDTO(
+                doc.getId(),
                 doc.getTitle(),
                 doc.getType().name(),
                 doc.getStatus().name(),

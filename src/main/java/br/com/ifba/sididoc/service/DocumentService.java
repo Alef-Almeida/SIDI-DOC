@@ -20,9 +20,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -34,6 +39,7 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
 
     @Value("${supabase.bucket.name}")
     private String bucketName;
@@ -88,7 +94,7 @@ public class DocumentService {
             log.debug("Tentando salvar registro do documento no banco de dados...");
             Document savedDoc = documentRepository.save(document);
             log.info("Documento persistido no banco com sucesso. ID: {}", savedDoc.getId());
-            String publicUrl = buildPublicUrl(fullStoragePath);
+            String publicUrl = generatePresignedUrl(fullStoragePath);
 
             return DocumentResponseDTO.fromEntity(savedDoc, publicUrl);
 
@@ -165,5 +171,20 @@ public class DocumentService {
     @Transactional(readOnly = true)
     public List<Document> findAll() {
         return documentRepository.findAll();
+    }
+
+    private String generatePresignedUrl(String key) {
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .build();
+
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(60))
+                .getObjectRequest(getObjectRequest)
+                .build();
+
+        software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
+        return presignedRequest.url().toString();
     }
 }
