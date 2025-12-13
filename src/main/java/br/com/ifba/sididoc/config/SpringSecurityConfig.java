@@ -38,7 +38,8 @@ public class SpringSecurityConfig {
                                 "/auth/login",
                                 "/auth/complete-registration",
                                 "/auth/request-password-reset",
-                                "/auth/reset-password"
+                                "/auth/reset-password",
+                                "/ocr/**"
                         ).permitAll()
 
                         //Protecao de endpoints por role
