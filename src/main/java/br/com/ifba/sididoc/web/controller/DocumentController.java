@@ -60,10 +60,28 @@ public class DocumentController {
     private ResponseEntity<Resource> buildDownloadResponse(DocumentExportDTO exportDto) {
         ByteArrayResource resource = new ByteArrayResource(exportDto.data());
 
+        String filename = exportDto.filename();
+        String contentType = exportDto.contentType();
+
+        if(filename == null || filename.isBlank()){
+            filename = "documento";
+        }
+
+        if ("application/zip".equals(contentType)) {
+            if (!filename.toLowerCase().endsWith(".zip")) {
+                filename += ".zip";
+            }
+        }
+        else if (MediaType.APPLICATION_PDF_VALUE.equals(contentType)) {
+            if (!filename.toLowerCase().endsWith(".pdf")) {
+                filename += ".pdf";
+            }
+        }
+
         return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_PDF)
+                .contentType(MediaType.parseMediaType(contentType))
                 .contentLength(exportDto.data().length)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + exportDto.filename() + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .body(resource);
     }
 }

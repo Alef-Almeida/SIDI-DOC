@@ -17,7 +17,9 @@ import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -48,6 +50,7 @@ public class DocumentExportService {
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
              ZipOutputStream zos = new ZipOutputStream(baos)) {
+            Set<String> usedFilenames = new HashSet<>();
 
             for (Long id : documentIds) {
                 try {
@@ -61,10 +64,22 @@ public class DocumentExportService {
                     // Obtém o DTO do arquivo individual
                     DocumentExportDTO fileDto = downloadFromStorage(document);
 
-                    // Cria nome único no ZIP
-                    String zipEntryName = document.getId() + "_" + fileDto.filename();
+                    String entryName = fileDto.filename();
+                    int count = 1;
+                    while (usedFilenames.contains(entryName)) {
+                        if (entryName.contains(".")) {
+                            int dotIndex = entryName.lastIndexOf(".");
+                            String name = entryName.substring(0, dotIndex);
+                            String ext = entryName.substring(dotIndex);
+                            entryName = name + "(" + count + ")" + ext;
+                        } else {
+                            entryName = entryName + "(" + count + ")";
+                        }
+                        count++;
+                    }
+                    usedFilenames.add(entryName);
 
-                    ZipEntry entry = new ZipEntry(zipEntryName);
+                    ZipEntry entry = new ZipEntry(entryName);
                     zos.putNextEntry(entry);
                     zos.write(fileDto.data());
                     zos.closeEntry();
