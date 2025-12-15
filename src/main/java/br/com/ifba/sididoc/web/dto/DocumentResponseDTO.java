@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 public record DocumentResponseDTO(
+        Long id,
         String title,
         String sectorName,
         String categoryName,
@@ -24,6 +25,7 @@ public record DocumentResponseDTO(
         String sector = (doc.getSector() != null) ? doc.getSector().getName() : "N/A";
         String category = (doc.getCategory() != null) ? doc.getCategory().getName() : "Sem Categoria";
         return new DocumentResponseDTO(
+                doc.getId(),
                 doc.getTitle(),
                 doc.getType().name(),
                 doc.getStatus().name(),
