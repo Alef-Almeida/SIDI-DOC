@@ -3,7 +3,11 @@ package br.com.ifba.sididoc.entity;
 import br.com.ifba.sididoc.enums.Role;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "users")
@@ -32,7 +36,7 @@ public class User extends PersistenceEntity{
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "sector_id")
     )
-    private List<Sector> sectors;
+    private List<Sector> sectors = new ArrayList<>();
 
     private Boolean isFirstAccess;
 

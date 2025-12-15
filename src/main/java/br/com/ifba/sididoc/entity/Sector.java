@@ -2,7 +2,9 @@ package br.com.ifba.sididoc.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "sectors")
@@ -11,22 +13,18 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Sector {
+public class Sector extends PersistenceEntity{
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
+    @Column(nullable = false, unique = true)
     private String name;
+    @Column(nullable = false, unique = true)
     private String code;
-
     @Column(length = 1000)
     private String description;
+    @Column(nullable = false)
+    private boolean active = true;
 
-    private String createBy;
-    private String lastModifiedBy;
-
-    private LocalDateTime createdDate;
-    private LocalDateTime lastModifiedDate;
+    @ManyToMany(mappedBy = "sectors", fetch = FetchType.LAZY)
+    private Set<User> users = new HashSet<>();
 
 }

@@ -28,8 +28,6 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 
-import java.io.IOException;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -41,16 +39,16 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final S3Client s3Client;
-    private final S3Presigner s3Presigner;
-
     @Value("${supabase.bucket.name}")
     private String bucketName;
-
     @Value("${supabase.project.url}")
     private String supabaseProjectUrl;
+    private final DocumentCategoryService documentCategoryService;
+    private final SectorService sectorService;
+
 
     @Transactional
-    public DocumentResponseDTO uploadDocument(UploadDocumentDTO dto) throws IOException {
+    public Document uploadDocument(UploadDocumentDTO dto, Long sectorId) {
         MultipartFile file = dto.file();
         String originalFilename = file.getOriginalFilename();
         String contentType = file.getContentType();
@@ -82,6 +80,8 @@ public class DocumentService {
         }
 
         Document document = new Document();
+        document.setCategory(documentCategoryService.findById(dto.categoryId()));
+        document.setSector(sectorService.findReferenceById(sectorId));
         document.setTitle(title);
         document.setType(type);
         document.setUploadDate(LocalDateTime.now());
@@ -96,9 +96,9 @@ public class DocumentService {
             log.debug("Tentando salvar registro do documento no banco de dados...");
             Document savedDoc = documentRepository.save(document);
             log.info("Documento persistido no banco com sucesso. ID: {}", savedDoc.getId());
-            String publicUrl = generatePresignedUrl(fullStoragePath);
 
-            return DocumentResponseDTO.fromEntity(savedDoc, publicUrl);
+            savedDoc.setPublicUrl(buildPublicUrl(fullStoragePath));
+            return savedDoc;
 
         } catch (DataIntegrityViolationException e) {
             log.error("Erro de integridade ao salvar documento no banco. Título: {}", title, e);
@@ -107,20 +107,19 @@ public class DocumentService {
     }
 
     @Transactional(readOnly = true)
-    public Page<DocumentResponseDTO> findAll(Pageable pageable) {
+    public Page<Document> findAll(Pageable pageable) {
         log.info("Buscando lista de documentos. Página: {}, Tamanho: {}", pageable.getPageNumber(), pageable.getPageSize());
 
-        return documentRepository.findAll(pageable)
-                .map(document -> {
-                    String storagePath = document.getMetaData().get("storage_path");
+        Page<Document> page = documentRepository.findAll(pageable);
 
-                    String publicUrl = null;
-                    if (storagePath != null && !storagePath.isBlank()) {
-                        publicUrl = buildPublicUrl(storagePath);
-                    }
+        page.getContent().forEach(doc -> {
+            String storagePath = doc.getMetaData().get("storage_path");
+            if (storagePath != null && !storagePath.isBlank()) {
+                doc.setPublicUrl(buildPublicUrl(storagePath));
+            }
+        });
 
-                    return DocumentResponseDTO.fromEntity(document, publicUrl);
-                });
+        return page;
     }
 
     private DocumentType detectDocumentType(String contentType) {
@@ -182,28 +181,12 @@ public class DocumentService {
     }
 
     @Transactional(readOnly = true)
-    public Document findById(Long id) {
-        return documentRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Documento não encontrado com ID: " + id));
-    }
+    public List<DocumentResponseDTO> findBySectorAndCategory(Long sectorId, Long categoryId) {
+        log.info("Buscando documentos (Ordem Alfabética) - Setor: {}, Categoria: {}", sectorId, categoryId);
 
-    @Transactional(readOnly = true)
-    public List<Document> findAll() {
-        return documentRepository.findAll();
-    }
-
-    private String generatePresignedUrl(String key) {
-        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                .bucket(bucketName)
-                .key(key)
-                .build();
-
-        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofMinutes(60))
-                .getObjectRequest(getObjectRequest)
-                .build();
-
-        software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
-        return presignedRequest.url().toString();
+        return documentRepository.findBySector_IdAndCategory_IdOrderByTitleAsc(sectorId, categoryId)
+                .stream()
+                .map(DocumentResponseDTO::fromEntity)
+                .toList();
     }
 }

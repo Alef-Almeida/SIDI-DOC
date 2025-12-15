@@ -2,20 +2,32 @@ package br.com.ifba.sididoc.service;
 
 import br.com.ifba.sididoc.entity.*;
 import br.com.ifba.sididoc.enums.Role;
+import br.com.ifba.sididoc.exception.ResourceAlreadyExistsException;
+import br.com.ifba.sididoc.exception.ResourceInactiveException;
+import br.com.ifba.sididoc.exception.ResourceNotFoundException;
+import br.com.ifba.sididoc.exception.SectorAccessDeniedException;
+import br.com.ifba.sididoc.jwt.JwtToken;
 import br.com.ifba.sididoc.jwt.JwtUtils;
 import br.com.ifba.sididoc.repository.SectorRepository;
 import br.com.ifba.sididoc.repository.UserRepository;
+import br.com.ifba.sididoc.util.UserUtils;
 import br.com.ifba.sididoc.web.dto.RegisterUserDTO;
+import br.com.ifba.sididoc.web.dto.SectorResponseDTO;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserService {
 
     private final UserRepository userRepository;
@@ -23,8 +35,8 @@ public class UserService {
     private final JwtUtils jwtUtils;
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
+    private final UserDetailsService userDetailsService;
 
-    //Variavel para receber o URL do frontend que será recebido posteriomente
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
@@ -130,4 +142,110 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado: " + email));
     }
 
+    public JwtToken switchSector(String currentToken, Long newSectorId) {
+        String cleanToken = currentToken.replace("Bearer ", "");
+        String email = jwtUtils.extractUsername(cleanToken);
+
+        log.info("Solicitação de troca de contexto: Usuário [{}] tentando acessar o Setor ID [{}]", email, newSectorId);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> {
+                    log.error("Erro crítico na troca de setor: Usuário com email [{}] não encontrado no banco.", email);
+                    return new ResourceNotFoundException("Usuário não encontrado.");
+                });
+
+        boolean hasAccess = user.getSectors().stream()
+                .anyMatch(s -> s.getId().equals(newSectorId));
+
+        if (!hasAccess) {
+            log.warn("ACESSO NEGADO: O usuário [{}] tentou acessar o Setor ID [{}] mas não possui permissão.", email, newSectorId);
+            throw new SectorAccessDeniedException("Usuário não tem acesso a este setor.");
+        }
+
+        UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+
+        String newToken = jwtUtils.generateToken(userDetails, newSectorId);
+
+        log.info("Troca de setor realizada com sucesso. Usuário [{}] agora está operando no Setor ID [{}].", email, newSectorId);
+
+        return new JwtToken(newToken);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SectorResponseDTO> findSectorsByUserId(Long userId) {
+        log.info("Buscando setores para o usuário ID: {}", userId);
+
+        // Garante que o usuário já existe
+        if (!userRepository.existsById(userId)) {
+            throw new EntityNotFoundException("Usuário não encontrado");
+        }
+
+        // "SELECT s FROM User u JOIN u.sectors s WHERE u.id = :userId"
+        List<Sector> sectors = sectorRepository.findAllByUserId(userId);
+
+        return sectors.stream()
+                .map(SectorResponseDTO::fromEntity)
+                .toList();
+    }
+
+    public User findById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado."));
+    }
+
+    @Transactional(readOnly = true)
+    public User findByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado com o email: " + email));
+    }
+
+    @Transactional
+    public void addToSector(String sectorCode, String userEmail) {
+        log.info("Vinculando usuário [{}] ao setor [{}]", userEmail, sectorCode);
+
+        Sector sector = sectorRepository.findByCode(sectorCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Setor não encontrado com código: " + sectorCode));
+
+        if (!sector.isActive()) {
+            throw new ResourceInactiveException("O setor está desativado.");
+        }
+
+        User user = findByEmail(userEmail);
+
+        if (user.getSectors().contains(sector)) {
+            throw new ResourceAlreadyExistsException("Usuário já está vinculado a este setor.");
+        }
+
+        user.getSectors().add(sector);
+        sector.getUsers().add(user);
+
+        userRepository.save(user);
+        log.info("Vínculo salvo com sucesso.");
+    }
+
+    @Transactional
+    public void removeFromSector(String sectorCode, String userEmail) {
+        log.info("Removendo vínculo: Usuário [{}] do Setor [{}]", userEmail, sectorCode);
+
+        Sector sector = sectorRepository.findByCode(sectorCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Setor não encontrado com código: " + sectorCode));
+
+        User user = findByEmail(userEmail);
+
+        if (!user.getSectors().contains(sector)) {
+            throw new ResourceNotFoundException("O usuário não pertence a este setor.");
+        }
+
+        user.getSectors().remove(sector);
+        sector.getUsers().remove(user);
+
+        userRepository.save(user);
+        log.info("Vínculo removido com sucesso.");
+    }
+
+    @Transactional(readOnly = true)
+    public User me() {
+        String email = UserUtils.getAuthenticatedUserEmail();
+        return findByEmail(email);
+    }
 }

@@ -29,6 +29,9 @@ spring:
       secret: ${SECURITY_JWT_SECRET}
       expiration-millis: ${JWT_EXPIRATION:3600000}
 
+cors:
+  origin-patterns: ${FRONTEND_URL}
+
 aws:
   accessKeyId: ${AWS_ACCESS_KEY_ID}
   secretKey: ${AWS_SECRET_KEY}

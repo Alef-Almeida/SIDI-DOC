@@ -25,7 +25,7 @@ public class AuthenticationService {
         );
 
         UserDetails principal = (UserDetails) authentication.getPrincipal();
-        String token = jwtUtils.generateToken(principal);
+        String token = jwtUtils.generateToken(principal, null);
 
         String role = principal.getAuthorities().stream()
                 .findFirst()
