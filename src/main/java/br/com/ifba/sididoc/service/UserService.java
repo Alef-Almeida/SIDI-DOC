@@ -13,6 +13,7 @@ import br.com.ifba.sididoc.repository.UserRepository;
 import br.com.ifba.sididoc.util.UserUtils;
 import br.com.ifba.sididoc.web.dto.RegisterUserDTO;
 import br.com.ifba.sididoc.web.dto.SectorResponseDTO;
+import br.com.ifba.sididoc.web.dto.UserResponseDTO;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +42,7 @@ public class UserService {
     private String frontendUrl;
 
     // Registra novo usuário e envia e-mail de ativação
+    @Transactional
     public User registerUser(User adminUser, RegisterUserDTO dto) {
         if (adminUser.getRole() != Role.SUPER_ADMIN &&
                 adminUser.getRole() != Role.SECTOR_ADMIN) {
@@ -88,6 +90,7 @@ public class UserService {
     }
 
     // Completa o registro definindo a senha inicial
+    @Transactional
     public void completeRegistration(String token, String newPassword) {
 
         String email = jwtUtils.extractEmailFromActivationToken(token);
@@ -137,9 +140,40 @@ public class UserService {
     }
 
     //Apenas para obter o email do usuario logado
+    @Transactional(readOnly = true)
     public User getByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado: " + email));
+    }
+
+    //Listar usuarios que ainda não ativaram a conta
+    @Transactional(readOnly = true)
+    public List<UserResponseDTO> listPendingUsers() {
+        return userRepository.findByIsFirstAccessTrue()
+                .stream()
+                .map(UserResponseDTO::fromEntity)
+                .toList();
+    }
+
+    //Listar usuarios que já ativaram a conta
+    @Transactional(readOnly = true)
+    public List<UserResponseDTO> listActivatedUsers() {
+        return userRepository.findByIsFirstAccessFalse()
+                .stream()
+                .map(UserResponseDTO::fromEntity)
+                .toList();
+    }
+
+    //Reenviar email caso a conta ainda não tenha sido ativada
+    public void resendActivationEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+
+        if (!Boolean.TRUE.equals(user.getIsFirstAccess())) {
+            throw new RuntimeException("Este usuário já ativou a conta.");
+        }
+
+        sendActivationEmail(user);
     }
 
     public JwtToken switchSector(String currentToken, Long newSectorId) {
@@ -246,6 +280,8 @@ public class UserService {
     @Transactional(readOnly = true)
     public User me() {
         String email = UserUtils.getAuthenticatedUserEmail();
-        return findByEmail(email);
+        return userRepository.findByEmailWithSectors(email)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
     }
+
 }

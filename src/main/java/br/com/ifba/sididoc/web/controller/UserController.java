@@ -29,6 +29,7 @@ public class UserController {
         return ResponseEntity.ok(UserResponseDTO.fromEntity(user));
     }
 
+    //Só é autorizado caso o usuário logado seja SUPER_ADMIN ou SECTOR_ADMIN
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SECTOR_ADMIN')")
     @PostMapping("/register")
     public ResponseEntity<String> registerUser(
@@ -67,4 +68,29 @@ public class UserController {
         userService.removeFromSector(dto.code(), dto.email());
         return ResponseEntity.noContent().build();
     }
+
+    //Reenvio de email de ativação
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SECTOR_ADMIN')")
+    @PostMapping("/resend-activation")
+    public ResponseEntity<String> resendActivation(@RequestParam String email) {
+
+        userService.resendActivationEmail(email);
+        return ResponseEntity.ok("E-mail de ativação reenviado com sucesso.");
+    }
+
+    //Usuarios que ainda nao se cadastraram
+    @GetMapping("/pending")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SECTOR_ADMIN')")
+    public ResponseEntity<List<UserResponseDTO>> listPending() {
+        return ResponseEntity.ok(userService.listPendingUsers());
+    }
+
+    //Usuarios ja cadastrados
+    @GetMapping("/activated")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SECTOR_ADMIN')")
+    public ResponseEntity<List<UserResponseDTO>> listActivated() {
+        return ResponseEntity.ok(userService.listActivatedUsers());
+    }
+
+
 }

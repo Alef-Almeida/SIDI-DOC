@@ -27,6 +27,7 @@ public class SpringSecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         http
+                .cors(cors -> {})
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -37,11 +38,14 @@ public class SpringSecurityConfig {
                                 "/auth/login",
                                 "/auth/complete-registration",
                                 "/auth/request-password-reset",
-                                "/auth/reset-password"
+                                "/auth/reset-password",
+                                "/sectors/find-all-active"
                         ).permitAll()
 
                         //Protecao de endpoints por role
                         .requestMatchers("/users/**").hasAnyRole("SUPER_ADMIN", "SECTOR_ADMIN")
+                        .requestMatchers("/sectors/**").hasAnyRole("SUPER_ADMIN", "SECTOR_ADMIN")
+                        .requestMatchers("/documents/upload").authenticated()
 
                         .anyRequest().permitAll()
                        // .anyRequest().authenticated()
@@ -49,6 +53,21 @@ public class SpringSecurityConfig {
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+
+        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+
+        return source;
     }
 
     @Bean

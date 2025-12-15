@@ -32,6 +32,6 @@ public class AuthenticationService {
                 .map(Object::toString)
                 .orElse("UNKNOWN");
 
-        return new LoginResponse(token, role);
+        return new LoginResponse(token, role, principal.getUsername(), null);
     }
 }
