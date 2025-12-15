@@ -1,16 +1,19 @@
 package br.com.ifba.sididoc.web.controller;
 
+import br.com.ifba.sididoc.jwt.JwtToken;
 import br.com.ifba.sididoc.service.AuthenticationService;
 import br.com.ifba.sididoc.service.UserService;
 import br.com.ifba.sididoc.web.dto.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
+//@CrossOrigin(origins = "*")
 public class AuthController {
 
     private final AuthenticationService authenticationService;
@@ -50,4 +53,12 @@ public class AuthController {
         return ResponseEntity.ok("Senha redefinida com sucesso.");
     }
 
+    @PostMapping("/switch-sector/{sectorId}")
+    public ResponseEntity<JwtToken> switchSector(@RequestHeader("Authorization") String token, @PathVariable Long sectorId) {
+
+        JwtToken newJwt = userService.switchSector(token, sectorId);
+
+        return ResponseEntity.ok(newJwt);
+    }
 }
+

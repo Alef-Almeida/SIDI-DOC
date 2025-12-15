@@ -26,4 +26,5 @@ public class Sector extends PersistenceEntity{
 
     @ManyToMany(mappedBy = "sectors", fetch = FetchType.LAZY)
     private Set<User> users = new HashSet<>();
+
 }

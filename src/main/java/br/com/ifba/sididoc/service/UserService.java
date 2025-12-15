@@ -38,7 +38,6 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserDetailsService userDetailsService;
 
-    //Variavel para receber o URL do frontend que será recebido posteriomente
     @Value("${app.frontend-url}")
     private String frontendUrl;
 

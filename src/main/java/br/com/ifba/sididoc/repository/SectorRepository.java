@@ -11,9 +11,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface SectorRepository extends JpaRepository<Sector, Long> {
-
-    // Adicionar métodos caso necessário
-
     @Query("SELECT s FROM Sector s JOIN s.users u WHERE u.id = :userId")
     List<Sector> findAllByUserId(@Param("userId") Long userId);
 
@@ -28,5 +25,4 @@ public interface SectorRepository extends JpaRepository<Sector, Long> {
     Page<Sector> findAllByActiveTrue(Pageable pageable);
 
     Optional<Sector> findByCode(String code);
-
 }

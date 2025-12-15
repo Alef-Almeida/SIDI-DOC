@@ -22,6 +22,8 @@ public class Document extends PersistenceEntity{
     @Getter(AccessLevel.NONE)
     @Setter(AccessLevel.NONE)
     private Integer type;
+    @Transient
+    private String publicUrl;
 
     @ElementCollection
     @CollectionTable(name = "document_metadata",
@@ -37,6 +39,14 @@ public class Document extends PersistenceEntity{
     private Integer status;
     private String extractedText;
     private Float ocrConfidence;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sector_id", nullable = false)
+    private Sector sector;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
+    private DocumentCategory category;
 
     public DocumentType getType() {
         return DocumentType.fromCode(this.type);

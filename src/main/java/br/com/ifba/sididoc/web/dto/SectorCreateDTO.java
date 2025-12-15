@@ -12,11 +12,11 @@ public record SectorCreateDTO(
         @Size(max = 1000, message = "A descrição não pode ter mais de 1000 caracteres.")
         String description
 ) {
-    public Sector toEntity() {
-        Sector sector = new Sector();
-        sector.setName(this.name);
-        sector.setCode(this.code);
-        sector.setDescription(this.description);
-        return sector;
-    }
+        public Sector toEntity() {
+                Sector sector = new Sector();
+                sector.setName(this.name);
+                sector.setCode(this.code);
+                sector.setDescription(this.description);
+                return sector;
+        }
 }
