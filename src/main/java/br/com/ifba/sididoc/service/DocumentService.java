@@ -189,4 +189,12 @@ public class DocumentService {
                 .map(DocumentResponseDTO::fromEntity)
                 .toList();
     }
+
+    @Transactional(readOnly = true)
+    public Page<Document> findBySector(Long sectorId, Pageable pageable) {
+        log.info("Buscando documentos do Setor ID: [{}]. Página: [{}], Tamanho: [{}], Ordenação: [{}]", sectorId, pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
+        Page<Document> documents = documentRepository.findBySectorId(sectorId, pageable);
+        log.info("Busca concluída para Setor ID: [{}]. Retornando [{}] registros nesta página (Total geral: {}).", sectorId, documents.getNumberOfElements(), documents.getTotalElements());
+        return documents;
+    }
 }

@@ -48,4 +48,12 @@ public class DocumentController {
         // Retorna a lista (pode ser vazia, o que é um resultado válido 200 OK)
         return ResponseEntity.ok(results);
     }
+
+    @GetMapping(value = "/find-by-sector")
+    public ResponseEntity<Page<DocumentResponseDTO>> findBySector(@AuthenticationPrincipal CustomUserDetails user, @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        Long sectorId = user.getCurrentSectorId();
+        Page<Document> documentsPage = documentService.findBySector(sectorId, pageable);
+        Page<DocumentResponseDTO> dtoPage = documentsPage.map(DocumentResponseDTO::fromEntity);
+        return ResponseEntity.ok(dtoPage);
+    }
 }
