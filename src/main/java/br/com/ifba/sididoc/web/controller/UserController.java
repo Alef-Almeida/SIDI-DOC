@@ -5,6 +5,7 @@ import br.com.ifba.sididoc.service.UserService;
 import br.com.ifba.sididoc.web.dto.RegisterUserDTO;
 import br.com.ifba.sididoc.web.dto.SectorResponseDTO;
 import br.com.ifba.sididoc.web.dto.UserResponseDTO;
+import br.com.ifba.sididoc.web.dto.UserSectorDTO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -55,15 +56,15 @@ public class UserController {
 
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SECTOR_ADMIN')")
     @PostMapping("/add-to-sector")
-    public ResponseEntity<Void> addUserToSector(@RequestParam String email, @RequestParam String sectorCode) {
-        userService.addToSector(sectorCode, email);
+    public ResponseEntity<Void> addUserToSector(@RequestBody @Valid UserSectorDTO dto) {
+        userService.addToSector(dto.code(), dto.email());
         return ResponseEntity.ok().build();
     }
 
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SECTOR_ADMIN')")
     @DeleteMapping("/remove-from-sector")
-    public ResponseEntity<Void> removeUserFromSector(@RequestParam String email, @RequestParam String sectorCode) {
-        userService.removeFromSector(sectorCode, email);
+    public ResponseEntity<Void> removeUserFromSector(@RequestBody @Valid UserSectorDTO dto) {
+        userService.removeFromSector(dto.code(), dto.email());
         return ResponseEntity.noContent().build();
     }
 }
