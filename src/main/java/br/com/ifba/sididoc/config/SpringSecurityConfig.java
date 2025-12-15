@@ -5,6 +5,7 @@ import br.com.ifba.sididoc.jwt.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -27,24 +28,30 @@ public class SpringSecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         http
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(ex ->
-                        ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/auth/login",
-                                "/auth/complete-registration",
-                                "/auth/request-password-reset",
-                                "/auth/reset-password"
-                        ).permitAll()
+            // ✅ habilita CORS dentro do Spring Security
+            .cors(cors -> {})
 
-                        //Protecao de endpoints por role
-                        .requestMatchers("/users/**").hasAnyRole("SUPER_ADMIN", "SECTOR_ADMIN")
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(ex ->
+                ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
+            .authorizeHttpRequests(auth -> auth
 
-                        .anyRequest().authenticated()
-                );
+                // ✅ libera preflight do browser
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                .requestMatchers(
+                    "/auth/login",
+                    "/auth/complete-registration",
+                    "/auth/request-password-reset",
+                    "/auth/reset-password"
+                ).permitAll()
+
+                .requestMatchers("/users/**").hasAnyRole("SUPER_ADMIN", "SECTOR_ADMIN")
+
+                .anyRequest().authenticated()
+            );
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
@@ -57,7 +64,7 @@ public class SpringSecurityConfig {
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration)
-            throws Exception {
+        throws Exception {
         return configuration.getAuthenticationManager();
     }
 }
