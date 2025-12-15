@@ -81,7 +81,7 @@ public class DocumentService {
 
         Document document = new Document();
         document.setCategory(documentCategoryService.findById(dto.categoryId()));
-        document.setSector(sectorService.findReferenceById(sectorId));
+        document.setSector(sectorService.findById(sectorId));
         document.setTitle(title);
         document.setType(type);
         document.setUploadDate(LocalDateTime.now());
@@ -188,5 +188,13 @@ public class DocumentService {
                 .stream()
                 .map(DocumentResponseDTO::fromEntity)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Document> findBySector(Long sectorId, Pageable pageable) {
+        log.info("Buscando documentos do Setor ID: [{}]. Página: [{}], Tamanho: [{}], Ordenação: [{}]", sectorId, pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
+        Page<Document> documents = documentRepository.findBySectorId(sectorId, pageable);
+        log.info("Busca concluída para Setor ID: [{}]. Retornando [{}] registros nesta página (Total geral: {}).", sectorId, documents.getNumberOfElements(), documents.getTotalElements());
+        return documents;
     }
 }

@@ -32,5 +32,4 @@ public interface UserRepository extends JpaRepository<User, Long> {
     WHERE u.email = :email
 """)
     Optional<User> findByEmailWithSectors(@Param("email") String email);
-
 }

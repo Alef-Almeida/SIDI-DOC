@@ -25,7 +25,7 @@ public class Document extends PersistenceEntity{
     @Transient
     private String publicUrl;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "document_metadata",
             joinColumns = @JoinColumn(name = "document_id"))
     @MapKeyColumn(name = "meta_key")
@@ -40,11 +40,11 @@ public class Document extends PersistenceEntity{
     private String extractedText;
     private Float ocrConfidence;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "sector_id", nullable = false)
     private Sector sector;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "category_id", nullable = false)
     private DocumentCategory category;
 
