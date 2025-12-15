@@ -8,6 +8,7 @@ import java.util.List;
 public record UserResponseDTO(
         Long id,
         String name,
+        String email,
         Role role,
         List<SectorResponseDTO> sectors
 ) {
@@ -15,6 +16,7 @@ public record UserResponseDTO(
         return new UserResponseDTO(
                 user.getId(),
                 user.getName(),
+                user.getEmail(),
                 user.getRole(),
                 user.getSectors().stream()
                         .map(SectorResponseDTO::fromEntity)

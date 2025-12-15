@@ -40,6 +40,7 @@ public class AdminInitializer implements CommandLineRunner {
         User admin = new User();
         admin.setName("Administrador");
         admin.setEmail("admin@ifba.edu.br");
+        admin.setSectors(sectorRepository.findAll());
         admin.setPasswordHash(passwordEncoder.encode("admin123"));
         admin.setRole(Role.SUPER_ADMIN);
         admin.setIsFirstAccess(false);

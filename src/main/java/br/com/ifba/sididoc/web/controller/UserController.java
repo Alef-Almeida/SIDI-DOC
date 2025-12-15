@@ -92,5 +92,11 @@ public class UserController {
         return ResponseEntity.ok(userService.listActivatedUsers());
     }
 
+    //Lista de todos os usuarios
+    @GetMapping("/find-all")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SECTOR_ADMIN')")
+    public ResponseEntity<List<UserResponseDTO>> listAllUsers() {
+        return ResponseEntity.ok(userService.listAllUsers());
+    }
 
 }

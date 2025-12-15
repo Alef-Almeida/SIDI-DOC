@@ -284,4 +284,13 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
     }
 
+    //Listar todos os usuarios
+    @Transactional(readOnly = true)
+    public List<UserResponseDTO> listAllUsers() {
+        return userRepository.findAll()
+                .stream()
+                .map(UserResponseDTO::fromEntity)
+                .toList();
+        }
+
 }

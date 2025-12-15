@@ -2,6 +2,7 @@ package br.com.ifba.sididoc.web.controller;
 
 import br.com.ifba.sididoc.entity.Document;
 import br.com.ifba.sididoc.jwt.CustomUserDetails;
+import br.com.ifba.sididoc.service.DocumentExportService;
 import br.com.ifba.sididoc.service.DocumentService;
 import br.com.ifba.sididoc.web.dto.DocumentExportDTO;
 import br.com.ifba.sididoc.web.dto.DocumentResponseDTO;
@@ -9,6 +10,10 @@ import br.com.ifba.sididoc.web.dto.UploadDocumentDTO;
 import jakarta.validation.Valid;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
