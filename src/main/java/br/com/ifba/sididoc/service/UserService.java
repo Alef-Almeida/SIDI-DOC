@@ -176,6 +176,7 @@ public class UserService {
         sendActivationEmail(user);
     }
 
+    @Transactional
     public JwtToken switchSector(String currentToken, Long newSectorId) {
         String cleanToken = currentToken.replace("Bearer ", "");
         String email = jwtUtils.extractUsername(cleanToken);

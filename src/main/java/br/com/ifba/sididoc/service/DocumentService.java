@@ -81,7 +81,7 @@ public class DocumentService {
 
         Document document = new Document();
         document.setCategory(documentCategoryService.findById(dto.categoryId()));
-        document.setSector(sectorService.findReferenceById(sectorId));
+        document.setSector(sectorService.findById(sectorId));
         document.setTitle(title);
         document.setType(type);
         document.setUploadDate(LocalDateTime.now());
