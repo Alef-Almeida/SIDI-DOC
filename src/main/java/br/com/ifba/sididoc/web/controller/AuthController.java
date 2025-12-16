@@ -56,8 +56,15 @@ public class AuthController {
     @PostMapping("/switch-sector/{sectorId}")
     public ResponseEntity<JwtToken> switchSector(@RequestHeader("Authorization") String token, @PathVariable Long sectorId) {
 
+        // 1. Limpeza do Token (Remove o "Bearer " se vier)
+        if (token != null && token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
+
+        // 2. Chama o serviço (se der erro, o Spring lança a exceção correta automaticamente)
         JwtToken newJwt = userService.switchSector(token, sectorId);
 
+        // 3. Retorna 200 OK com o novo Token
         return ResponseEntity.ok(newJwt);
     }
 }
