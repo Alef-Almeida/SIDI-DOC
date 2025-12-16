@@ -1,16 +1,19 @@
 package br.com.ifba.sididoc.web.controller;
 
+import br.com.ifba.sididoc.entity.DocumentCategory;
 import br.com.ifba.sididoc.service.DocumentCategoryService;
 import br.com.ifba.sididoc.web.dto.DocumentCategoryRequestDTO;
 import br.com.ifba.sididoc.web.dto.DocumentCategoryResponseDTO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/documents-categories")
@@ -33,9 +36,9 @@ public class DocumentCategoryController {
 
 
     @GetMapping(value = "/find-all")
-    public ResponseEntity<List<DocumentCategoryResponseDTO>> findAllActive() {
-        List<DocumentCategoryResponseDTO> list = service.findAllActive();
-        return ResponseEntity.ok(list);
+    public ResponseEntity<Page<DocumentCategoryResponseDTO>> findAllActive(@PageableDefault(page = 0, size = 24, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
+        Page<DocumentCategory> pageEntities = service.findAllActive(pageable);
+        return ResponseEntity.ok(pageEntities.map(DocumentCategoryResponseDTO::fromEntity));
     }
 
 

@@ -31,7 +31,7 @@ public class DocumentExportService {
     private final DocumentRepository documentRepository;
     private final S3Client s3Client;
 
-    @Value("${supabase.bucket-name}")
+    @Value("${supabase.bucket.name}")
     private String bucketName;
 
     @Transactional(readOnly = true)
