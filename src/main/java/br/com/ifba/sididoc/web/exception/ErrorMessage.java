@@ -47,6 +47,23 @@ public class ErrorMessage {
         addErrors(result);
     }
 
+    public ErrorMessage(HttpServletRequest request, HttpStatus status, String message) {
+        this.path = request.getRequestURI();
+        this.method = request.getMethod();
+        this.status = status.value();
+        this.statusText = status.getReasonPhrase();
+        this.message = message;
+    }
+
+    public ErrorMessage(HttpServletRequest request, HttpStatus status, String message, BindingResult result) {
+        this.path = request.getRequestURI();
+        this.method = request.getMethod();
+        this.status = status.value();
+        this.statusText = status.getReasonPhrase();
+        this.message = message;
+        addErrors(result);
+    }
+
     private void addErrors(BindingResult result) {
         this.errors = new HashMap<>();
         for (FieldError fieldError : result.getFieldErrors()) {

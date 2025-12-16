@@ -47,7 +47,9 @@ public class SpringSecurityConfig {
                         ).permitAll()
 
                        .anyRequest().authenticated()
-                );
+                )
+
+        .exceptionHandling(ex -> ex.authenticationEntryPoint(new JwtAuthenticationEntryPoint()));
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
