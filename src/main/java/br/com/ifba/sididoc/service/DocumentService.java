@@ -12,6 +12,8 @@ import br.com.ifba.sididoc.web.dto.DocumentResponseDTO;
 import br.com.ifba.sididoc.web.dto.UploadDocumentDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.sourceforge.tess4j.TesseractException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -25,6 +27,8 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -32,6 +36,8 @@ import java.util.UUID;
 @Slf4j
 public class DocumentService {
 
+    @Autowired
+    private ExtratorService extratorService;
     private final DocumentRepository documentRepository;
     private final S3Client s3Client;
 
@@ -42,10 +48,11 @@ public class DocumentService {
     private String supabaseProjectUrl;
 
     @Transactional
-    public DocumentResponseDTO uploadDocument(UploadDocumentDTO dto) throws IOException {
+    public DocumentResponseDTO uploadDocument(UploadDocumentDTO dto) throws IOException, TesseractException {
         MultipartFile file = dto.file();
         String originalFilename = file.getOriginalFilename();
         String contentType = file.getContentType();
+        String textoExtraido = extratorService.extrair(file);
         long size = file.getSize();
 
         log.info("Iniciando processamento de upload. Arquivo: [{}], Tipo: [{}], Tamanho: [{} bytes]", originalFilename, contentType, size);
@@ -75,6 +82,7 @@ public class DocumentService {
 
         Document document = new Document();
         document.setTitle(title);
+        document.setExtractedText(textoExtraido);
         document.setType(type);
         document.setUploadDate(LocalDateTime.now());
         document.setStatus(ProcessingStatus.PENDING);
@@ -171,5 +179,21 @@ public class DocumentService {
     private String generateStoragePath(String filename) {
         LocalDateTime now = LocalDateTime.now();
         return String.format("%d/%02d/%s", now.getYear(), now.getMonthValue(), filename);
+    }
+
+    public List<Document> search(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 1. Limpeza básica: remove caracteres especiais que quebram a query do banco
+        // Mantém apenas letras, números e espaços (ajuste conforme necessidade)
+        String termoLimpo = query.replaceAll("[^a-zA-Z0-9À-ÿ\\s]", "");
+
+        // 2. Formatação para o Postgres: troca espaços por " & "
+        // Ex: "nota fiscal" vira "nota & fiscal"
+        String termoFormatado = termoLimpo.trim().replaceAll("\\s+", " & ");
+
+        return documentRepository.searchByTerm(termoFormatado);
     }
 }

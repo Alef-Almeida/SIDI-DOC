@@ -23,7 +23,7 @@ public class Document extends PersistenceEntity{
     @Setter(AccessLevel.NONE)
     private Integer type;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "document_metadata",
             joinColumns = @JoinColumn(name = "document_id"))
     @MapKeyColumn(name = "meta_key")
@@ -35,7 +35,10 @@ public class Document extends PersistenceEntity{
     @Getter(AccessLevel.NONE)
     @Setter(AccessLevel.NONE)
     private Integer status;
+
+    @Column(columnDefinition = "TEXT") //permite armazenamento ilimitado no postgres
     private String extractedText;
+
     private Float ocrConfidence;
 
     public DocumentType getType() {

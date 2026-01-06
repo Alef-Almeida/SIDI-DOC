@@ -127,25 +127,4 @@ public class ExtratorService {
         return inputMat;
     }
 
-//    private BufferedImage preProcessarImagemComOpenCV(BufferedImage javaImage) {
-//        // Conversores do JavaCV
-//        OpenCVFrameConverter.ToMat cvtToMat = new OpenCVFrameConverter.ToMat();
-//        Java2DFrameConverter cvtToJava2D = new Java2DFrameConverter();
-//
-//        // 1. Converte BufferedImage (Java) -> Mat (OpenCV)
-//        Mat mat = cvtToMat.convert(cvtToJava2D.convert(javaImage));
-//
-//        // 2. Aplica Escala de Cinza
-//        Mat grayMat = new Mat();
-//        opencv_imgproc.cvtColor(mat, grayMat, opencv_imgproc.COLOR_BGR2GRAY);
-//
-//        // 3. Aplica GaussianBlur (Suavização)
-//        Mat blurredMat = new Mat();
-//        // O Size(5, 5) deve ser ímpar. O sigmaX = 0 calcula automaticamente.
-//        opencv_imgproc.GaussianBlur(grayMat, blurredMat, new org.bytedeco.opencv.opencv_core.Size(5, 5), 0);
-//
-//        // 4. Converte de volta Mat (OpenCV) -> BufferedImage (Java) para o Tesseract usar
-//        return cvtToJava2D.convert(cvtToMat.convert(blurredMat));
-//    }
-
 }
