@@ -10,7 +10,8 @@ public record UserResponseDTO(
         String name,
         String email,
         Role role,
-        List<SectorResponseDTO> sectors
+        List<SectorResponseDTO> sectors,
+        boolean IsFirstAccess
 ) {
     public static UserResponseDTO fromEntity(User user) {
         return new UserResponseDTO(
@@ -20,7 +21,8 @@ public record UserResponseDTO(
                 user.getRole(),
                 user.getSectors().stream()
                         .map(SectorResponseDTO::fromEntity)
-                        .toList()
+                        .toList(),
+                user.getIsFirstAccess()
         );
     }
 }

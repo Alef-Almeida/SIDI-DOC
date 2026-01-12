@@ -13,7 +13,7 @@ public record CompleteRegistrationDTO(
         //Utilizando regex para validar a senha
         @Size(min = 8, message = "A senha deve ter no mínimo 8 caracteres.")
         @Pattern(
-                regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$",
+                regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#.])[A-Za-z\\d@$!%*?&#.]{8,}$",
                 message = "Mínimo de 8 digitos, necessario incluir um caractere especial, letra maiúscula e um número."
         )
         String newPassword
