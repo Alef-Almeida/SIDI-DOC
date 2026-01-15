@@ -9,6 +9,7 @@ import br.com.ifba.sididoc.exception.InvalidDocumentTitleException;
 import br.com.ifba.sididoc.exception.InvalidDocumentTypeException;
 import br.com.ifba.sididoc.repository.DocumentRepository;
 import br.com.ifba.sididoc.web.dto.DocumentResponseDTO;
+import br.com.ifba.sididoc.web.dto.DownloadDocumentDTO;
 import br.com.ifba.sididoc.web.dto.UploadDocumentDTO;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -20,12 +21,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 
 import java.time.LocalDateTime;
@@ -196,5 +197,43 @@ public class DocumentService {
         Page<Document> documents = documentRepository.findBySectorId(sectorId, pageable);
         log.info("Busca concluída para Setor ID: [{}]. Retornando [{}] registros nesta página (Total geral: {}).", sectorId, documents.getNumberOfElements(), documents.getTotalElements());
         return documents;
+    }
+
+    @Transactional(readOnly = true)
+    public DownloadDocumentDTO downloadDocument(Long documentId) {
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new EntityNotFoundException("Documento não encontrado."));
+
+        String storagePath = document.getMetaData().get("storage_path");
+        String originalFilename = document.getMetaData().get("original_filename");
+        String contentType = document.getMetaData().get("content_type");
+
+        long size = 0;
+        if (document.getMetaData().containsKey("size_bytes")) {
+            size = Long.parseLong(document.getMetaData().get("size_bytes"));
+        }
+
+        if (storagePath == null) throw new IllegalStateException("Caminho do arquivo não encontrado.");
+
+        try {
+            log.info("Abrindo stream de download do S3: {}", storagePath);
+
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(storagePath)
+                    .build();
+
+            ResponseInputStream<GetObjectResponse> s3Stream = s3Client.getObject(getObjectRequest);
+
+            if (size == 0) {
+                size = s3Stream.response().contentLength();
+            }
+
+            return new DownloadDocumentDTO(originalFilename, contentType, s3Stream, size);
+
+        } catch (Exception e) {
+            log.error("Erro ao iniciar download do S3: {}", storagePath, e);
+            throw new CloudStorageException("Erro ao conectar com armazenamento.", e);
+        }
     }
 }
