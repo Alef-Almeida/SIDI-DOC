@@ -27,10 +27,10 @@ public record DocumentResponseDTO(
         return new DocumentResponseDTO(
                 doc.getId(),
                 doc.getTitle(),
-                doc.getType().name(),
-                doc.getStatus().name(),
                 sector,
                 category,
+                doc.getType().name(),
+                doc.getStatus().name(),
                 doc.getUploadDate(),
                 Long.valueOf(sizeStr),// Conversão segura
                 doc.getPublicUrl()
