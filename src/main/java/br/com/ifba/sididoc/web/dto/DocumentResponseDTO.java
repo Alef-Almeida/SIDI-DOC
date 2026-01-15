@@ -32,7 +32,7 @@ public record DocumentResponseDTO(
                 doc.getType().name(),
                 doc.getStatus().name(),
                 doc.getUploadDate(),
-                Long.valueOf(sizeStr),// Conversão segura
+                Long.valueOf(sizeStr),
                 doc.getPublicUrl()
         );
     }

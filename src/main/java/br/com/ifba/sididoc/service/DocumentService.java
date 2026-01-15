@@ -189,20 +189,36 @@ public class DocumentService {
 
     @Transactional(readOnly = true)
     public List<DocumentResponseDTO> findBySectorAndCategory(Long sectorId, Long categoryId) {
-        log.info("Buscando documentos (Ordem Alfabética) - Setor: {}, Categoria: {}", sectorId, categoryId);
+        log.info("Buscando documentos - Setor: {}, Categoria: {}", sectorId, categoryId);
 
-        return documentRepository.findBySector_IdAndCategory_IdOrderByTitleAsc(sectorId, categoryId)
-                .stream()
+        List<Document> documents = documentRepository.findBySector_IdAndCategory_IdOrderByTitleAsc(sectorId, categoryId);
+
+        documents.forEach(doc -> {
+            String storagePath = doc.getMetaData().get("storage_path");
+            if (storagePath != null && !storagePath.isBlank()) {
+                doc.setPublicUrl(buildPublicUrl(storagePath));
+            }
+        });
+
+        return documents.stream()
                 .map(DocumentResponseDTO::fromEntity)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public Page<Document> findBySector(Long sectorId, Pageable pageable) {
-        log.info("Buscando documentos do Setor ID: [{}]. Página: [{}], Tamanho: [{}], Ordenação: [{}]", sectorId, pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
-        Page<Document> documents = documentRepository.findBySectorId(sectorId, pageable);
-        log.info("Busca concluída para Setor ID: [{}]. Retornando [{}] registros nesta página (Total geral: {}).", sectorId, documents.getNumberOfElements(), documents.getTotalElements());
-        return documents;
+        log.info("Buscando documentos do Setor ID: [{}].", sectorId);
+
+        Page<Document> page = documentRepository.findBySectorId(sectorId, pageable);
+
+        page.getContent().forEach(doc -> {
+            String storagePath = doc.getMetaData().get("storage_path");
+            if (storagePath != null && !storagePath.isBlank()) {
+                doc.setPublicUrl(buildPublicUrl(storagePath));
+            }
+        });
+
+        return page;
     }
 
     @Transactional(readOnly = true)
