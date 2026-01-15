@@ -4,13 +4,17 @@ import br.com.ifba.sididoc.entity.Document;
 import br.com.ifba.sididoc.jwt.CustomUserDetails;
 import br.com.ifba.sididoc.service.DocumentService;
 import br.com.ifba.sididoc.web.dto.DocumentResponseDTO;
+import br.com.ifba.sididoc.web.dto.DownloadDocumentDTO;
 import br.com.ifba.sididoc.web.dto.UploadDocumentDTO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -55,5 +59,18 @@ public class DocumentController {
         Page<Document> documentsPage = documentService.findBySector(sectorId, pageable);
         Page<DocumentResponseDTO> dtoPage = documentsPage.map(DocumentResponseDTO::fromEntity);
         return ResponseEntity.ok(dtoPage);
+    }
+
+    @GetMapping(value = "/download", params = "id")
+    public ResponseEntity<Resource> download(@RequestParam("id") Long id) {
+        DownloadDocumentDTO dto = documentService.downloadDocument(id);
+
+        InputStreamResource resource = new InputStreamResource(dto.inputStream());
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(dto.contentType()))
+                .contentLength(dto.length())
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + dto.filename() + "\"")
+                .body(resource);
     }
 }
