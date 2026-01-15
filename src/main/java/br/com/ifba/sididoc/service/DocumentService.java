@@ -31,6 +31,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 
 import java.io.OutputStream;
+import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -264,7 +265,7 @@ public class DocumentService {
         log.info("Iniciando geração de ZIP para {} documentos...", documentIds.size());
         List<Document> documents = documentRepository.findAllById(documentIds);
 
-        Set<String> usedFileNames = new HashSet<>();
+        Set<String> usedPaths = new HashSet<>();
 
         try (ZipOutputStream zipOut = new ZipOutputStream(outputStream)) {
 
@@ -272,18 +273,31 @@ public class DocumentService {
                 String storagePath = doc.getMetaData().get("storage_path");
                 String originalName = doc.getMetaData().getOrDefault("original_filename", "doc_" + doc.getId());
 
-                String uniqueName = originalName;
+                String sectorName = doc.getSector() != null ? doc.getSector().getName() : "Sem Setor";
+                String categoryName = doc.getCategory() != null ? doc.getCategory().getName() : "Sem Categoria";
+
+                String safeSector = sanitizeFileName(sectorName);
+                String safeCategory = sanitizeFileName(categoryName);
+                String safeFilename = sanitizeFileName(originalName);
+
+                String folderStructure = safeSector + "/" + safeCategory + "/";
+
+                String fullPath = folderStructure + safeFilename;
+
                 int counter = 1;
-                while (usedFileNames.contains(uniqueName)) {
-                    int dotIndex = originalName.lastIndexOf(".");
+                while (usedPaths.contains(fullPath)) {
+                    int dotIndex = safeFilename.lastIndexOf(".");
+                    String newFileName;
                     if (dotIndex != -1) {
-                        uniqueName = originalName.substring(0, dotIndex) + " (" + counter + ")" + originalName.substring(dotIndex);
+                        newFileName = safeFilename.substring(0, dotIndex) + " (" + counter + ")" + safeFilename.substring(dotIndex);
                     } else {
-                        uniqueName = originalName + " (" + counter + ")";
+                        newFileName = safeFilename + " (" + counter + ")";
                     }
+
+                    fullPath = folderStructure + newFileName;
                     counter++;
                 }
-                usedFileNames.add(uniqueName);
+                usedPaths.add(fullPath);
 
                 try {
                     GetObjectRequest getObjectRequest = GetObjectRequest.builder()
@@ -293,7 +307,7 @@ public class DocumentService {
 
                     try (var s3Stream = s3Client.getObject(getObjectRequest)) {
 
-                        ZipEntry zipEntry = new ZipEntry(uniqueName);
+                        ZipEntry zipEntry = new ZipEntry(fullPath);
                         zipOut.putNextEntry(zipEntry);
 
                         StreamUtils.copy(s3Stream, zipOut);
@@ -303,8 +317,8 @@ public class DocumentService {
 
                 } catch (Exception e) {
                     log.error("Erro ao adicionar arquivo ID {} ao ZIP: {}", doc.getId(), e.getMessage());
-                    zipOut.putNextEntry(new ZipEntry("ERRO_" + uniqueName + ".txt"));
-                    zipOut.write(("Não foi possível baixar este arquivo. Erro: " + e.getMessage()).getBytes());
+                    zipOut.putNextEntry(new ZipEntry(folderStructure + "ERRO_" + doc.getId() + ".txt"));
+                    zipOut.write(("Não foi possível baixar o arquivo original: " + originalName + ". Erro: " + e.getMessage()).getBytes());
                     zipOut.closeEntry();
                 }
             }
@@ -315,5 +329,12 @@ public class DocumentService {
             log.error("Erro fatal ao gerar ZIP.", e);
             throw new RuntimeException("Erro ao gerar arquivo compactado.", e);
         }
+    }
+
+    private String sanitizeFileName(String input) {
+        if (input == null) return "Desconhecido";
+        String normalized = Normalizer.normalize(input, Normalizer.Form.NFD);
+        String safe = normalized.replaceAll("[^a-zA-Z0-9\\.\\-_ ]", "");
+        return safe.trim();
     }
 }
