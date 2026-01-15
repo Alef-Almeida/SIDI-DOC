@@ -20,6 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StreamUtils;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -29,9 +30,14 @@ import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 
+import java.io.OutputStream;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @RequiredArgsConstructor
 @Service
@@ -234,6 +240,64 @@ public class DocumentService {
         } catch (Exception e) {
             log.error("Erro ao iniciar download do S3: {}", storagePath, e);
             throw new CloudStorageException("Erro ao conectar com armazenamento.", e);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public void downloadDocumentsAsZip(List<Long> documentIds, OutputStream outputStream) {
+        log.info("Iniciando geração de ZIP para {} documentos...", documentIds.size());
+        List<Document> documents = documentRepository.findAllById(documentIds);
+
+        Set<String> usedFileNames = new HashSet<>();
+
+        try (ZipOutputStream zipOut = new ZipOutputStream(outputStream)) {
+
+            for (Document doc : documents) {
+                String storagePath = doc.getMetaData().get("storage_path");
+                String originalName = doc.getMetaData().getOrDefault("original_filename", "doc_" + doc.getId());
+
+                String uniqueName = originalName;
+                int counter = 1;
+                while (usedFileNames.contains(uniqueName)) {
+                    int dotIndex = originalName.lastIndexOf(".");
+                    if (dotIndex != -1) {
+                        uniqueName = originalName.substring(0, dotIndex) + " (" + counter + ")" + originalName.substring(dotIndex);
+                    } else {
+                        uniqueName = originalName + " (" + counter + ")";
+                    }
+                    counter++;
+                }
+                usedFileNames.add(uniqueName);
+
+                try {
+                    GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                            .bucket(bucketName)
+                            .key(storagePath)
+                            .build();
+
+                    try (var s3Stream = s3Client.getObject(getObjectRequest)) {
+
+                        ZipEntry zipEntry = new ZipEntry(uniqueName);
+                        zipOut.putNextEntry(zipEntry);
+
+                        StreamUtils.copy(s3Stream, zipOut);
+
+                        zipOut.closeEntry();
+                    }
+
+                } catch (Exception e) {
+                    log.error("Erro ao adicionar arquivo ID {} ao ZIP: {}", doc.getId(), e.getMessage());
+                    zipOut.putNextEntry(new ZipEntry("ERRO_" + uniqueName + ".txt"));
+                    zipOut.write(("Não foi possível baixar este arquivo. Erro: " + e.getMessage()).getBytes());
+                    zipOut.closeEntry();
+                }
+            }
+
+            log.info("ZIP gerado com sucesso.");
+
+        } catch (Exception e) {
+            log.error("Erro fatal ao gerar ZIP.", e);
+            throw new RuntimeException("Erro ao gerar arquivo compactado.", e);
         }
     }
 }

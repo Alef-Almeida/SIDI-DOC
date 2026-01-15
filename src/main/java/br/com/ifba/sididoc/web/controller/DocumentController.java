@@ -20,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.util.List;
 
@@ -72,5 +73,17 @@ public class DocumentController {
                 .contentLength(dto.length())
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + dto.filename() + "\"")
                 .body(resource);
+    }
+
+    @GetMapping(value = "/download-zip")
+    public ResponseEntity<StreamingResponseBody> downloadAsZip(@RequestParam("ids") List<Long> ids) {
+        StreamingResponseBody stream = outputStream -> {
+            documentService.downloadDocumentsAsZip(ids, outputStream);
+        };
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + "documentos_sidi_doc.zip" + "\"")
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .body(stream);
     }
 }
