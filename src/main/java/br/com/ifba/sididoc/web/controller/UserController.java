@@ -2,10 +2,7 @@ package br.com.ifba.sididoc.web.controller;
 
 import br.com.ifba.sididoc.entity.User;
 import br.com.ifba.sididoc.service.UserService;
-import br.com.ifba.sididoc.web.dto.RegisterUserDTO;
-import br.com.ifba.sididoc.web.dto.SectorResponseDTO;
-import br.com.ifba.sididoc.web.dto.UserResponseDTO;
-import br.com.ifba.sididoc.web.dto.UserSectorDTO;
+import br.com.ifba.sididoc.web.dto.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -98,5 +95,25 @@ public class UserController {
     public ResponseEntity<List<UserResponseDTO>> listAllUsers() {
         return ResponseEntity.ok(userService.listAllUsers());
     }
+
+    //Atualização do próprio perfil, sem alterar role e email
+    @PutMapping("/update-profile")
+    public ResponseEntity<UserResponseDTO> updateMyProfile(
+            @Valid @RequestBody UpdateMyProfileDTO dto
+    ) {
+        return ResponseEntity.ok(userService.updateMyProfile(dto));
+    }
+
+    //Atualização de perfil por admin, podendo alterar role e email
+    @PutMapping("/update-profile/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SECTOR_ADMIN')")
+    public ResponseEntity<UserResponseDTO> updateUser(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateUserDTO dto
+    ) {
+        return ResponseEntity.ok(userService.updateUser(id, dto));
+    }
+
+
 
 }

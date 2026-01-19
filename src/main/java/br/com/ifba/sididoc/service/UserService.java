@@ -11,9 +11,7 @@ import br.com.ifba.sididoc.jwt.JwtUtils;
 import br.com.ifba.sididoc.repository.SectorRepository;
 import br.com.ifba.sididoc.repository.UserRepository;
 import br.com.ifba.sididoc.util.UserUtils;
-import br.com.ifba.sididoc.web.dto.RegisterUserDTO;
-import br.com.ifba.sididoc.web.dto.SectorResponseDTO;
-import br.com.ifba.sididoc.web.dto.UserResponseDTO;
+import br.com.ifba.sididoc.web.dto.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,10 +44,12 @@ public class UserService {
     public User registerUser(User adminUser, RegisterUserDTO dto) {
         if (adminUser.getRole() != Role.SUPER_ADMIN &&
                 adminUser.getRole() != Role.SECTOR_ADMIN) {
+            log.error("Você não tem permissão para criar usuários.");
             throw new RuntimeException("Você não tem permissão para criar usuários.");
         }
 
         if (userRepository.existsByEmail(dto.email())) {
+            log.warn("E-mail já cadastrado: {}", dto.email());
             throw new RuntimeException("E-mail já cadastrado.");
         }
 
@@ -66,6 +66,7 @@ public class UserService {
 
         user = userRepository.save(user);
 
+        log.info("Novo usuário registrado: [{}] [{}]", user.getName(), user.getEmail());
         sendActivationEmail(user);
         return user;
     }
@@ -86,6 +87,7 @@ public class UserService {
                 Este link expira em 24 horas.
                 """.formatted(user.getName(), link);
 
+        log.info("Enviando e-mail de ativação para: [{}]", user.getEmail());
         emailService.send(user.getEmail(), "SIDIDOC - Ativação de conta", text);
     }
 
@@ -101,6 +103,7 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setIsFirstAccess(false);
 
+        log.info("Usuário [{}] definiu sua senha e pode acessar o sistema.", user.getEmail());
         userRepository.save(user);
         //ADD email de confirmação de cadastro
     }
@@ -108,7 +111,10 @@ public class UserService {
     // Solicita redefinição de senha | usuarios ja registrados
     public void requestPasswordReset(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+                .orElseThrow(() -> {
+                    log.error("Erro ao solicitar redefinição de senha: Usuário com email [{}] não encontrado no sistema.", email);
+                    return new RuntimeException("Usuário não encontrado.");
+                });
 
         String token = jwtUtils.generateResetPasswordToken(user);
         String link = frontendUrl + "/redefinir-senha?token=" + token;
@@ -124,6 +130,7 @@ public class UserService {
                 Se não foi você, ignore este e-mail.
                 """.formatted(user.getName(), link);
 
+        log.info("Enviando e-mail de redefinição de senha para: [{}]", user.getEmail());
         emailService.send(user.getEmail(), "SIDIDOC - Redefinição de senha", text);
     }
 
@@ -132,10 +139,14 @@ public class UserService {
         String email = jwtUtils.extractEmailFromResetToken(token);
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+                .orElseThrow(() -> {
+                    log.error("Erro ao redefinir senha: Usuário com email [{}] não encontrado no sistema.", email);
+                    return new RuntimeException("Usuário não encontrado.");
+                });
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
 
+        log.info("Usuário [{}] redefiniu sua senha com sucesso.", user.getEmail());
         userRepository.save(user);
     }
 
@@ -149,6 +160,7 @@ public class UserService {
     //Listar usuarios que ainda não ativaram a conta
     @Transactional(readOnly = true)
     public List<UserResponseDTO> listPendingUsers() {
+        log.info("Listando usuários que ainda não ativaram a conta.");
         return userRepository.findByIsFirstAccessTrue()
                 .stream()
                 .map(UserResponseDTO::fromEntity)
@@ -158,6 +170,7 @@ public class UserService {
     //Listar usuarios que já ativaram a conta
     @Transactional(readOnly = true)
     public List<UserResponseDTO> listActivatedUsers() {
+        log.info("Listando usuários que já ativaram a conta.");
         return userRepository.findByIsFirstAccessFalse()
                 .stream()
                 .map(UserResponseDTO::fromEntity)
@@ -167,16 +180,20 @@ public class UserService {
     //Reenviar email caso a conta ainda não tenha sido ativada
     public void resendActivationEmail(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+                .orElseThrow(() -> {
+                    log.error("Erro ao reenviar e-mail de ativação: Usuário com email [{}] não encontrado no sistema.", email);
+                    return new RuntimeException("Usuário não encontrado.");
+                });
 
         if (!Boolean.TRUE.equals(user.getIsFirstAccess())) {
+            log.warn("Usuário [{}], já ativou a conta no sistema.", email);
             throw new RuntimeException("Este usuário já ativou a conta.");
         }
 
+        log.info("Reenviando e-mail de ativação para o usuário [{}].", email);
         sendActivationEmail(user);
     }
 
-    @Transactional
     public JwtToken switchSector(String currentToken, Long newSectorId) {
         String cleanToken = currentToken.replace("Bearer ", "");
         String email = jwtUtils.extractUsername(cleanToken);
@@ -292,6 +309,46 @@ public class UserService {
                 .stream()
                 .map(UserResponseDTO::fromEntity)
                 .toList();
+    }
+
+    //Atualizar perfil do próprio usuário
+    @Transactional
+    public UserResponseDTO updateMyProfile(UpdateMyProfileDTO dto) {
+
+        User user = me();
+
+        if (!user.getEmail().equals(dto.email())
+                && userRepository.existsByEmail(dto.email())) {
+            log.warn("Esse e-mail ja está em uso.");
+            throw new ResourceAlreadyExistsException("Este e-mail já está em uso.");
         }
+
+        user.setName(dto.name());
+        user.setEmail(dto.email());
+
+        return UserResponseDTO.fromEntity(userRepository.save(user));
+    }
+
+    //Faz o update de um usuário sendo Admin, alterando email e role
+    @Transactional
+    public UserResponseDTO updateUser(Long userId, UpdateUserDTO dto) {
+
+        User user = findById(userId);
+
+        if (!user.getEmail().equals(dto.email())
+                && userRepository.existsByEmail(dto.email())) {
+            log.warn("Esse e-mail ja está em uso por outro usuário.");
+            throw new ResourceAlreadyExistsException("Este e-mail já está em uso.");
+        }
+
+        user.setName(dto.name());
+        user.setEmail(dto.email());
+        user.setRole(dto.role());
+
+        log.info("Atualizando informações do usuário: {}", dto.name());
+        return UserResponseDTO.fromEntity(userRepository.save(user));
+    }
+
+
 
 }
