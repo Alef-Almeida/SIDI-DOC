@@ -5,5 +5,5 @@ import org.springframework.web.multipart.MultipartFile;
 
 public record UploadDocumentDTO(
         @NotNull(message = "O arquivo é obrigatório")
-        MultipartFile file
-) {}
+        MultipartFile file,
+        String title) {}
