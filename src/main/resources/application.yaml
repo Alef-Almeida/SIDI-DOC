@@ -2,10 +2,27 @@ spring:
   application:
     name: sididoc
   profiles:
-    active: dev
+    active: homolog
 
   config:
     import: optional:file:.env[.properties]
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    database: POSTGRESQL
+    show-sql: false
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
 
   servlet:
     multipart:
@@ -45,3 +62,12 @@ supabase:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
+
+langchain4j:
+  gemini:
+    api-key: ${GEMINI_API_KEY}
+    model-name: ${MODEL_EMBEDDING_NAME}
+    chat-model-name: ${MODEL_CHAT_NAME}
+  vector-store:
+    table: embeddings
+    dimension: 768

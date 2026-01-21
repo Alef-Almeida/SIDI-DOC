@@ -29,7 +29,6 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-
 import java.io.OutputStream;
 import java.text.Normalizer;
 import java.time.LocalDateTime;
@@ -53,7 +52,7 @@ public class DocumentService {
     private String supabaseProjectUrl;
     private final DocumentCategoryService documentCategoryService;
     private final SectorService sectorService;
-
+    private final VectorIndexerService vectorIndexerService;
 
     @Transactional
     public Document uploadDocument(UploadDocumentDTO dto, Long sectorId) {
@@ -62,7 +61,8 @@ public class DocumentService {
         String contentType = file.getContentType();
         long size = file.getSize();
 
-        log.info("Iniciando processamento de upload. Arquivo: [{}], Tipo: [{}], Tamanho: [{} bytes]", originalFilename, contentType, size);
+        log.info("Iniciando processamento de upload. Arquivo: [{}], Tipo: [{}], Tamanho: [{} bytes]", originalFilename,
+                contentType, size);
 
         String title = validateAndExtractTitle(originalFilename);
         DocumentType type = detectDocumentType(contentType);
@@ -105,18 +105,29 @@ public class DocumentService {
             Document savedDoc = documentRepository.save(document);
             log.info("Documento persistido no banco com sucesso. ID: {}", savedDoc.getId());
 
+            // Indexação Vetorial Assíncrona (ou síncrona dependendo do requisito)
+            try {
+                vectorIndexerService.indexDocument(savedDoc, file.getBytes());
+            } catch (Exception e) {
+                log.error("Erro ao indexar documento ID {}: {}", savedDoc.getId(), e.getMessage());
+                // Não lançar exceção para não abortar o upload se a indexação falhar (opcional)
+            }
+
             savedDoc.setPublicUrl(buildPublicUrl(fullStoragePath));
             return savedDoc;
 
         } catch (DataIntegrityViolationException e) {
             log.error("Erro de integridade ao salvar documento no banco. Título: {}", title, e);
             throw new DatabaseException("Erro de integridade no banco de dados.");
+        } catch (Exception e) {
+            throw new RuntimeException("Erro ao ler bytes do arquivo para indexação", e);
         }
     }
 
     @Transactional(readOnly = true)
     public Page<Document> findAll(Pageable pageable) {
-        log.info("Buscando lista de documentos. Página: {}, Tamanho: {}", pageable.getPageNumber(), pageable.getPageSize());
+        log.info("Buscando lista de documentos. Página: {}, Tamanho: {}", pageable.getPageNumber(),
+                pageable.getPageSize());
 
         Page<Document> page = documentRepository.findAll(pageable);
 
@@ -142,7 +153,8 @@ public class DocumentService {
             return DocumentType.IMAGE;
         } else {
             log.warn("Tentativa de upload de formato não suportado: {}", contentType);
-            throw new InvalidDocumentTypeException("O formato do documento não é suportado. Apenas PDF e Imagens são permitidos.");
+            throw new InvalidDocumentTypeException(
+                    "O formato do documento não é suportado. Apenas PDF e Imagens são permitidos.");
         }
     }
 
@@ -154,7 +166,8 @@ public class DocumentService {
         int lastDotIndex = filename.lastIndexOf(".");
 
         if (lastDotIndex == 0) {
-            throw new InvalidDocumentTitleException("Nome de arquivo inválido. O arquivo não pode conter apenas a extensão (ex: '.pdf'). Renomeie o arquivo.");
+            throw new InvalidDocumentTitleException(
+                    "Nome de arquivo inválido. O arquivo não pode conter apenas a extensão (ex: '.pdf'). Renomeie o arquivo.");
         }
 
         String title;
@@ -192,7 +205,8 @@ public class DocumentService {
     public List<DocumentResponseDTO> findBySectorAndCategory(Long sectorId, Long categoryId) {
         log.info("Buscando documentos - Setor: {}, Categoria: {}", sectorId, categoryId);
 
-        List<Document> documents = documentRepository.findBySector_IdAndCategory_IdOrderByTitleAsc(sectorId, categoryId);
+        List<Document> documents = documentRepository.findBySector_IdAndCategory_IdOrderByTitleAsc(sectorId,
+                categoryId);
 
         documents.forEach(doc -> {
             String storagePath = doc.getMetaData().get("storage_path");
@@ -223,6 +237,11 @@ public class DocumentService {
     }
 
     @Transactional(readOnly = true)
+    public List<Document> findAllById(List<Long> ids) {
+        return documentRepository.findAllById(ids);
+    }
+
+    @Transactional(readOnly = true)
     public DownloadDocumentDTO downloadDocument(Long documentId) {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new EntityNotFoundException("Documento não encontrado."));
@@ -236,7 +255,8 @@ public class DocumentService {
             size = Long.parseLong(document.getMetaData().get("size_bytes"));
         }
 
-        if (storagePath == null) throw new IllegalStateException("Caminho do arquivo não encontrado.");
+        if (storagePath == null)
+            throw new IllegalStateException("Caminho do arquivo não encontrado.");
 
         try {
             log.info("Abrindo stream de download do S3: {}", storagePath);
@@ -289,7 +309,8 @@ public class DocumentService {
                     int dotIndex = safeFilename.lastIndexOf(".");
                     String newFileName;
                     if (dotIndex != -1) {
-                        newFileName = safeFilename.substring(0, dotIndex) + " (" + counter + ")" + safeFilename.substring(dotIndex);
+                        newFileName = safeFilename.substring(0, dotIndex) + " (" + counter + ")"
+                                + safeFilename.substring(dotIndex);
                     } else {
                         newFileName = safeFilename + " (" + counter + ")";
                     }
@@ -318,7 +339,8 @@ public class DocumentService {
                 } catch (Exception e) {
                     log.error("Erro ao adicionar arquivo ID {} ao ZIP: {}", doc.getId(), e.getMessage());
                     zipOut.putNextEntry(new ZipEntry(folderStructure + "ERRO_" + doc.getId() + ".txt"));
-                    zipOut.write(("Não foi possível baixar o arquivo original: " + originalName + ". Erro: " + e.getMessage()).getBytes());
+                    zipOut.write(("Não foi possível baixar o arquivo original: " + originalName + ". Erro: "
+                            + e.getMessage()).getBytes());
                     zipOut.closeEntry();
                 }
             }
@@ -332,7 +354,8 @@ public class DocumentService {
     }
 
     private String sanitizeFileName(String input) {
-        if (input == null) return "Desconhecido";
+        if (input == null)
+            return "Desconhecido";
         String normalized = Normalizer.normalize(input, Normalizer.Form.NFD);
         String safe = normalized.replaceAll("[^a-zA-Z0-9\\.\\-_ ]", "");
         return safe.trim();
