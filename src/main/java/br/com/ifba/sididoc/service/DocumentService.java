@@ -1,12 +1,10 @@
 package br.com.ifba.sididoc.service;
 
 import br.com.ifba.sididoc.entity.Document;
+import br.com.ifba.sididoc.entity.DocumentBatch;
 import br.com.ifba.sididoc.enums.DocumentType;
 import br.com.ifba.sididoc.enums.ProcessingStatus;
-import br.com.ifba.sididoc.exception.CloudStorageException;
-import br.com.ifba.sididoc.exception.DatabaseException;
-import br.com.ifba.sididoc.exception.InvalidDocumentTitleException;
-import br.com.ifba.sididoc.exception.InvalidDocumentTypeException;
+import br.com.ifba.sididoc.exception.*;
 import br.com.ifba.sididoc.repository.DocumentRepository;
 import br.com.ifba.sididoc.web.dto.DocumentResponseDTO;
 import br.com.ifba.sididoc.web.dto.DownloadDocumentDTO;
@@ -53,6 +51,7 @@ public class DocumentService {
     private final DocumentCategoryService documentCategoryService;
     private final SectorService sectorService;
     private final VectorIndexerService vectorIndexerService;
+    private final DocumentBatchService batchService;
 
     @Transactional
     public Document uploadDocument(UploadDocumentDTO dto, Long sectorId) {
@@ -89,6 +88,12 @@ public class DocumentService {
 
         Document document = new Document();
         document.setCategory(documentCategoryService.findById(dto.categoryId()));
+
+        if (dto.batchCode() != null && !dto.batchCode().isBlank()) {
+            DocumentBatch batch = batchService.findByCode(dto.batchCode());
+            document.setBatch(batch);
+        }
+
         document.setSector(sectorService.findById(sectorId));
         document.setTitle(title);
         document.setType(type);

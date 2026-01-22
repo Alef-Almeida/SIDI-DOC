@@ -48,6 +48,10 @@ public class Document extends PersistenceEntity{
     @JoinColumn(name = "category_id", nullable = false)
     private DocumentCategory category;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "batch_id", nullable = true)
+    private DocumentBatch batch;
+
     public DocumentType getType() {
         return DocumentType.fromCode(this.type);
     }

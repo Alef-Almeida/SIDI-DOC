@@ -8,5 +8,7 @@ public record UploadDocumentDTO(
         MultipartFile file,
 
         @NotNull(message = "A categoria é obrigatória.")
-        Long categoryId
+        Long categoryId,
+
+        String batchCode
 ) {}
