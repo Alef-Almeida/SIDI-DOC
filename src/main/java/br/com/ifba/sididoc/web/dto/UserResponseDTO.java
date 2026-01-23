@@ -11,7 +11,7 @@ public record UserResponseDTO(
         String email,
         Role role,
         List<SectorResponseDTO> sectors,
-        boolean IsFirstAccess
+        boolean isFirstAccess
 ) {
     public static UserResponseDTO fromEntity(User user) {
         return new UserResponseDTO(
