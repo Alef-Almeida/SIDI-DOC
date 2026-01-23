@@ -14,7 +14,8 @@ public record DocumentResponseDTO(
         String status,
         LocalDateTime uploadDate,
         Long sizeBytes,
-        String downloadUrl
+        String downloadUrl,
+        String batchCod
 ) {
     public static DocumentResponseDTO fromEntity(Document doc) {
         // Tratamento de segurança para metadata nulo
@@ -33,7 +34,8 @@ public record DocumentResponseDTO(
                 doc.getStatus().name(),
                 doc.getUploadDate(),
                 Long.valueOf(sizeStr),
-                doc.getPublicUrl()
+                doc.getPublicUrl(),
+                doc.getBatch() != null ? doc.getBatch().getCode() : null
         );
     }
 }
