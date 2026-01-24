@@ -1,13 +1,11 @@
 package br.com.ifba.sididoc.web.controller;
 
 import br.com.ifba.sididoc.entity.Document;
+import br.com.ifba.sididoc.entity.DocumentCategory;
 import br.com.ifba.sididoc.jwt.CustomUserDetails;
+import br.com.ifba.sididoc.service.DocumentCategoryService;
 import br.com.ifba.sididoc.service.DocumentService;
-import br.com.ifba.sididoc.web.dto.DocumentResponseDTO;
-import br.com.ifba.sididoc.web.dto.DownloadDocumentDTO;
-import br.com.ifba.sididoc.web.dto.UploadDocumentDTO;
-import br.com.ifba.sididoc.web.dto.SearchRequestDTO;
-import br.com.ifba.sididoc.web.dto.SearchResponseDTO;
+import br.com.ifba.sididoc.web.dto.*;
 import br.com.ifba.sididoc.service.VectorIndexerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -45,11 +43,17 @@ public class DocumentController {
     // private final DocumentExportService documentExportService;
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<DocumentResponseDTO> upload(@Valid @ModelAttribute UploadDocumentDTO dto,
-            @AuthenticationPrincipal CustomUserDetails user) {
+    public ResponseEntity<List<DocumentResponseDTO>> upload(@Valid @ModelAttribute UploadDocumentDTO dto, @AuthenticationPrincipal CustomUserDetails user) {
+
         Long sectorId = user.getCurrentSectorId();
-        Document document = documentService.uploadDocument(dto, sectorId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(DocumentResponseDTO.fromEntity(document));
+
+        List<Document> documents = documentService.uploadDocuments(dto, sectorId);
+
+        List<DocumentResponseDTO> response = documents.stream()
+                .map(DocumentResponseDTO::fromEntity)
+                .toList();
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping(value = "/find-all")
@@ -172,5 +176,11 @@ public class DocumentController {
                     .metadata(metadata)
                     .build();
         }).collect(Collectors.toList());
+    }
+
+    @PostMapping(value = "/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CategorySuggestionDTO> analyzeDocument(@RequestParam("file") MultipartFile file) {
+        CategorySuggestionDTO response = documentService.analyzeDocumentCategory(file);
+        return ResponseEntity.ok(response);
     }
 }

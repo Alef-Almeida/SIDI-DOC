@@ -2,10 +2,13 @@ package br.com.ifba.sididoc.service;
 
 import br.com.ifba.sididoc.entity.Document;
 import br.com.ifba.sididoc.entity.DocumentBatch;
+import br.com.ifba.sididoc.entity.DocumentCategory;
+import br.com.ifba.sididoc.entity.Sector;
 import br.com.ifba.sididoc.enums.DocumentType;
 import br.com.ifba.sididoc.enums.ProcessingStatus;
 import br.com.ifba.sididoc.exception.*;
 import br.com.ifba.sididoc.repository.DocumentRepository;
+import br.com.ifba.sididoc.web.dto.CategorySuggestionDTO;
 import br.com.ifba.sididoc.web.dto.DocumentResponseDTO;
 import br.com.ifba.sididoc.web.dto.DownloadDocumentDTO;
 import br.com.ifba.sididoc.web.dto.UploadDocumentDTO;
@@ -30,10 +33,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import java.io.OutputStream;
 import java.text.Normalizer;
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -54,14 +54,38 @@ public class DocumentService {
     private final DocumentBatchService batchService;
 
     @Transactional
-    public Document uploadDocument(UploadDocumentDTO dto, Long sectorId) {
-        MultipartFile file = dto.file();
+    public List<Document> uploadDocuments(UploadDocumentDTO dto, Long sectorId) {
+        log.info("Iniciando upload em lote de {} arquivos.", dto.files().size());
+
+        DocumentCategory category = documentCategoryService.findById(dto.categoryId());
+        Sector sector = sectorService.findById(sectorId);
+
+        DocumentBatch batch = null;
+        if (dto.batchCode() != null && !dto.batchCode().isBlank()) {
+            batch = batchService.findByCode(dto.batchCode());
+        }
+
+        List<Document> savedDocuments = new ArrayList<>();
+
+        for (MultipartFile file : dto.files()) {
+            try {
+                Document doc = processSingleFile(file, category, sector, batch);
+                savedDocuments.add(doc);
+            } catch (Exception e) {
+                log.error("Erro ao processar arquivo do lote: {}", file.getOriginalFilename(), e);
+                throw e;
+            }
+        }
+
+        return savedDocuments;
+    }
+
+    private Document processSingleFile(MultipartFile file, DocumentCategory category, Sector sector, DocumentBatch batch) {
         String originalFilename = file.getOriginalFilename();
         String contentType = file.getContentType();
         long size = file.getSize();
 
-        log.info("Iniciando processamento de upload. Arquivo: [{}], Tipo: [{}], Tamanho: [{} bytes]", originalFilename,
-                contentType, size);
+        log.info("Processando arquivo: [{}], Tipo: [{}], Tamanho: [{} bytes]", originalFilename, contentType, size);
 
         String title = validateAndExtractTitle(originalFilename);
         DocumentType type = detectDocumentType(contentType);
@@ -69,32 +93,23 @@ public class DocumentService {
         String storageKey = UUID.randomUUID().toString() + "." + extension;
         String fullStoragePath = generateStoragePath(storageKey);
 
-        log.debug("Metadados extraídos com sucesso. Título: '{}', Caminho Storage: '{}'", title, fullStoragePath);
-
         try {
-            log.info("Enviando arquivo para o Supabase Storage (Bucket: {})...", bucketName);
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
                     .key(fullStoragePath)
                     .contentType(contentType)
                     .build();
             s3Client.putObject(putObjectRequest, RequestBody.fromBytes(file.getBytes()));
-            log.info("Upload para o Storage concluído com sucesso.");
-
         } catch (Exception e) {
             log.error("Falha crítica ao enviar arquivo para o Storage. Caminho: {}", fullStoragePath, e);
             throw new CloudStorageException("Erro ao enviar arquivo para o Storage: " + e.getMessage(), e);
         }
 
         Document document = new Document();
-        document.setCategory(documentCategoryService.findById(dto.categoryId()));
+        document.setCategory(category);
+        document.setSector(sector);
+        document.setBatch(batch);
 
-        if (dto.batchCode() != null && !dto.batchCode().isBlank()) {
-            DocumentBatch batch = batchService.findByCode(dto.batchCode());
-            document.setBatch(batch);
-        }
-
-        document.setSector(sectorService.findById(sectorId));
         document.setTitle(title);
         document.setType(type);
         document.setUploadDate(LocalDateTime.now());
@@ -106,16 +121,12 @@ public class DocumentService {
         document.getMetaData().put("bucket", bucketName);
 
         try {
-            log.debug("Tentando salvar registro do documento no banco de dados...");
             Document savedDoc = documentRepository.save(document);
-            log.info("Documento persistido no banco com sucesso. ID: {}", savedDoc.getId());
 
-            // Indexação Vetorial Assíncrona (ou síncrona dependendo do requisito)
             try {
                 vectorIndexerService.indexDocument(savedDoc, file.getBytes());
             } catch (Exception e) {
                 log.error("Erro ao indexar documento ID {}: {}", savedDoc.getId(), e.getMessage());
-                // Não lançar exceção para não abortar o upload se a indexação falhar (opcional)
             }
 
             savedDoc.setPublicUrl(buildPublicUrl(fullStoragePath));
@@ -125,7 +136,7 @@ public class DocumentService {
             log.error("Erro de integridade ao salvar documento no banco. Título: {}", title, e);
             throw new DatabaseException("Erro de integridade no banco de dados.");
         } catch (Exception e) {
-            throw new RuntimeException("Erro ao ler bytes do arquivo para indexação", e);
+            throw new RuntimeException("Erro ao processar arquivo: " + originalFilename, e);
         }
     }
 
@@ -364,5 +375,25 @@ public class DocumentService {
         String normalized = Normalizer.normalize(input, Normalizer.Form.NFD);
         String safe = normalized.replaceAll("[^a-zA-Z0-9\\.\\-_ ]", "");
         return safe.trim();
+    }
+
+    public CategorySuggestionDTO analyzeDocumentCategory(MultipartFile file) {
+        try {
+            log.info("Iniciando análise de categoria para o arquivo: {}", file.getOriginalFilename());
+
+            List<DocumentCategory> allCategories = documentCategoryService.findAllActive();
+
+            DocumentCategory suggested = vectorIndexerService.analyzeAndSuggestCategory(file.getInputStream(), allCategories);
+
+            if (suggested != null) {
+                return new CategorySuggestionDTO(suggested.getId(), suggested.getName(), true);
+            } else {
+                return new CategorySuggestionDTO(null, null, false);
+            }
+
+        } catch (Exception e) {
+            log.error("Erro ao ler stream do arquivo para análise: {}", e.getMessage());
+            return new CategorySuggestionDTO(null, "Erro na análise", false);
+        }
     }
 }
