@@ -13,6 +13,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -52,6 +54,11 @@ public class DocumentCategoryService {
     @Transactional(readOnly = true)
     public Page<DocumentCategory> findAllActive(Pageable pageable) {
         return repository.findAllByActiveTrueOrderByNameAsc(pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DocumentCategory> findAllActive() {
+        return repository.findAllByActiveTrueOrderByNameAsc();
     }
 
     @Transactional

@@ -1,12 +1,15 @@
 package br.com.ifba.sididoc.service;
 
 import br.com.ifba.sididoc.entity.Document;
+import br.com.ifba.sididoc.entity.DocumentCategory;
 import dev.langchain4j.data.document.DocumentParser;
 import dev.langchain4j.data.document.parser.apache.tika.ApacheTikaDocumentParser;
 import dev.langchain4j.data.document.splitter.DocumentSplitters;
 
+import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.store.embedding.CosineSimilarity;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.data.message.UserMessage;
@@ -14,6 +17,8 @@ import dev.langchain4j.data.message.ImageContent;
 import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.model.output.Response;
+
+import java.io.InputStream;
 import java.util.Base64;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -123,6 +128,71 @@ public class VectorIndexerService {
                 log.error("Causa raiz: {}", e.getCause().getMessage(), e.getCause());
             }
             throw new RuntimeException("Falha na busca por imagem: " + e.getMessage(), e);
+        }
+    }
+
+    public DocumentCategory analyzeAndSuggestCategory(InputStream fileStream, List<DocumentCategory> availableCategories) {
+        try {
+            log.info("Iniciando análise inteligente (Vetorial + Keywords Dinâmicas)...");
+
+            DocumentParser parser = new ApacheTikaDocumentParser();
+            dev.langchain4j.data.document.Document langchainDoc = parser.parse(fileStream);
+            String text = langchainDoc.text();
+
+            if (text == null || text.isBlank()) return null;
+
+            String cleanText = text.replaceAll("\\s+", " ").trim();
+            String snippet = cleanText.length() > 4000 ? cleanText.substring(0, 4000) : cleanText;
+            String upperSnippet = snippet.toUpperCase();
+
+            dev.langchain4j.data.embedding.Embedding docEmbedding = embeddingModel.embed(snippet).content();
+
+            DocumentCategory bestMatch = null;
+            double maxScore = -1.0;
+
+            for (DocumentCategory cat : availableCategories) {
+                String catContext = cat.getName() + ": " + cat.getDescription();
+                dev.langchain4j.data.embedding.Embedding catEmbedding = embeddingModel.embed(catContext).content();
+
+                double score = CosineSimilarity.between(docEmbedding, catEmbedding);
+
+                String[] catWords = cat.getName().toUpperCase().split("\\s+");
+                boolean keywordFound = false;
+
+                for (String word : catWords) {
+                    if (word.length() <= 3) continue;
+
+                    String stem = word.endsWith("S") ? word.substring(0, word.length() - 1) : word;
+
+                    if (upperSnippet.contains(stem)) {
+                        keywordFound = true;
+                        log.debug("Keyword dinâmica encontrada: '{}' para categoria '{}'", stem, cat.getName());
+                        break;
+                    }
+                }
+
+                if (keywordFound) {
+                    score += 0.15;
+                }
+
+                log.info("Score para '{}': {}", cat.getName(), String.format("%.4f", score));
+
+                if (score > maxScore) {
+                    maxScore = score;
+                    bestMatch = cat;
+                }
+            }
+
+            if (maxScore > 0.65) {
+                log.info("VENCEDOR: {} (Score: {})", bestMatch.getName(), maxScore);
+                return bestMatch;
+            }
+
+            return null;
+
+        } catch (Exception e) {
+            log.error("Erro na análise IA: ", e);
+            return null;
         }
     }
 }

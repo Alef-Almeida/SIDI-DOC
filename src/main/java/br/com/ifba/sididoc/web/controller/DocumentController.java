@@ -1,13 +1,11 @@
 package br.com.ifba.sididoc.web.controller;
 
 import br.com.ifba.sididoc.entity.Document;
+import br.com.ifba.sididoc.entity.DocumentCategory;
 import br.com.ifba.sididoc.jwt.CustomUserDetails;
+import br.com.ifba.sididoc.service.DocumentCategoryService;
 import br.com.ifba.sididoc.service.DocumentService;
-import br.com.ifba.sididoc.web.dto.DocumentResponseDTO;
-import br.com.ifba.sididoc.web.dto.DownloadDocumentDTO;
-import br.com.ifba.sididoc.web.dto.UploadDocumentDTO;
-import br.com.ifba.sididoc.web.dto.SearchRequestDTO;
-import br.com.ifba.sididoc.web.dto.SearchResponseDTO;
+import br.com.ifba.sididoc.web.dto.*;
 import br.com.ifba.sididoc.service.VectorIndexerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -178,5 +176,11 @@ public class DocumentController {
                     .metadata(metadata)
                     .build();
         }).collect(Collectors.toList());
+    }
+
+    @PostMapping(value = "/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CategorySuggestionDTO> analyzeDocument(@RequestParam("file") MultipartFile file) {
+        CategorySuggestionDTO response = documentService.analyzeDocumentCategory(file);
+        return ResponseEntity.ok(response);
     }
 }

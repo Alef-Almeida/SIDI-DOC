@@ -8,6 +8,7 @@ import br.com.ifba.sididoc.enums.DocumentType;
 import br.com.ifba.sididoc.enums.ProcessingStatus;
 import br.com.ifba.sididoc.exception.*;
 import br.com.ifba.sididoc.repository.DocumentRepository;
+import br.com.ifba.sididoc.web.dto.CategorySuggestionDTO;
 import br.com.ifba.sididoc.web.dto.DocumentResponseDTO;
 import br.com.ifba.sididoc.web.dto.DownloadDocumentDTO;
 import br.com.ifba.sididoc.web.dto.UploadDocumentDTO;
@@ -374,5 +375,25 @@ public class DocumentService {
         String normalized = Normalizer.normalize(input, Normalizer.Form.NFD);
         String safe = normalized.replaceAll("[^a-zA-Z0-9\\.\\-_ ]", "");
         return safe.trim();
+    }
+
+    public CategorySuggestionDTO analyzeDocumentCategory(MultipartFile file) {
+        try {
+            log.info("Iniciando análise de categoria para o arquivo: {}", file.getOriginalFilename());
+
+            List<DocumentCategory> allCategories = documentCategoryService.findAllActive();
+
+            DocumentCategory suggested = vectorIndexerService.analyzeAndSuggestCategory(file.getInputStream(), allCategories);
+
+            if (suggested != null) {
+                return new CategorySuggestionDTO(suggested.getId(), suggested.getName(), true);
+            } else {
+                return new CategorySuggestionDTO(null, null, false);
+            }
+
+        } catch (Exception e) {
+            log.error("Erro ao ler stream do arquivo para análise: {}", e.getMessage());
+            return new CategorySuggestionDTO(null, "Erro na análise", false);
+        }
     }
 }
