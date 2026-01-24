@@ -45,11 +45,17 @@ public class DocumentController {
     // private final DocumentExportService documentExportService;
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<DocumentResponseDTO> upload(@Valid @ModelAttribute UploadDocumentDTO dto,
-            @AuthenticationPrincipal CustomUserDetails user) {
+    public ResponseEntity<List<DocumentResponseDTO>> upload(@Valid @ModelAttribute UploadDocumentDTO dto, @AuthenticationPrincipal CustomUserDetails user) {
+
         Long sectorId = user.getCurrentSectorId();
-        Document document = documentService.uploadDocument(dto, sectorId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(DocumentResponseDTO.fromEntity(document));
+
+        List<Document> documents = documentService.uploadDocuments(dto, sectorId);
+
+        List<DocumentResponseDTO> response = documents.stream()
+                .map(DocumentResponseDTO::fromEntity)
+                .toList();
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping(value = "/find-all")
