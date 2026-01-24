@@ -114,6 +114,12 @@ public class UserController {
         return ResponseEntity.ok(userService.updateUser(id, dto));
     }
 
-
+    //Delete user pelo id
+    @DeleteMapping("/delete/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SECTOR_ADMIN')")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+        userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
+    }
 
 }

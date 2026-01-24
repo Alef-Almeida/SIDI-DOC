@@ -350,6 +350,32 @@ public class UserService {
         return UserResponseDTO.fromEntity(userRepository.save(user));
     }
 
+    //Logica de negocio para deletar usuario no sistema
+    @Transactional
+    public void deleteUser(Long userId) {
+
+        User me = me();
+        User userDelete = findById(userId);
+
+        if (me.getId().equals(userId)) {
+            log.warn("Usuário [{}] tentou deletar o próprio usuário.", me.getName());
+            throw new ResourceNotFoundException("Você não pode deletar o próprio usuário.");
+        }
+
+        if (userDelete.getRole() == Role.SUPER_ADMIN) {
+            log.warn("Tentativa de deletar um Administrador [{}]", userDelete.getName());
+            throw new ResourceNotFoundException("Não é permitido deletar um Administrador.");
+        }
+
+        if (me.getRole() == Role.SECTOR_ADMIN &&
+                userDelete.getRole() != Role.OPERATOR) {
+            log.warn("Setor Admin [{}] tentou deletar usuário com permissão maior ou igual.", me.getName());
+            throw new ResourceNotFoundException("Você não tem permissão para deletar este usuário.");
+        }
+
+        log.warn("Usuário [{}] foi deletado do sistema por [{}].", userDelete.getName(), me.getName());
+        userRepository.delete(userDelete);
+    }
 
 
 }
