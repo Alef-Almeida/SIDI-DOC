@@ -10,5 +10,6 @@ public record DocumentCategoryRequestDTO(
         @NotBlank(message = "O nome é obrigatório.")
         String name,
 
+        @NotBlank(message = "A descrição é obrigatório.")
         String description
 ){}
