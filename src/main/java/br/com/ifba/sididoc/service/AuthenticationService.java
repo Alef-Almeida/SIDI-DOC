@@ -1,9 +1,11 @@
 package br.com.ifba.sididoc.service;
 
 import br.com.ifba.sididoc.entity.User;
+import br.com.ifba.sididoc.enums.AuditAction;
 import br.com.ifba.sididoc.jwt.JwtUtils;
 import br.com.ifba.sididoc.repository.SectorRepository;
 import br.com.ifba.sididoc.repository.UserRepository;
+import br.com.ifba.sididoc.util.RequestUtils;
 import br.com.ifba.sididoc.web.dto.LoginRequest;
 import br.com.ifba.sididoc.web.dto.LoginResponse;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ public class AuthenticationService {
     private final JwtUtils jwtUtils;
     private final SectorRepository sectorRepository;
     private final UserRepository userRepository;
+    private final AuditService auditService;
 
     public LoginResponse login(LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
@@ -47,6 +50,13 @@ public class AuthenticationService {
                 .findFirst()
                 .map(Object::toString)
                 .orElse("UNKNOWN");
+
+        auditService.log(
+                AuditAction.LOGIN,
+                "Usuário realizou login com sucesso",
+                principal.getUsername(),
+                RequestUtils.getClientIp()
+        );
 
         return new LoginResponse(token, role, principal.getUsername(), new ArrayList<>());
     }

@@ -1,6 +1,7 @@
 package br.com.ifba.sididoc.service;
 
 import br.com.ifba.sididoc.entity.*;
+import br.com.ifba.sididoc.enums.AuditAction;
 import br.com.ifba.sididoc.enums.Role;
 import br.com.ifba.sididoc.exception.ResourceAlreadyExistsException;
 import br.com.ifba.sididoc.exception.ResourceInactiveException;
@@ -10,6 +11,7 @@ import br.com.ifba.sididoc.jwt.JwtToken;
 import br.com.ifba.sididoc.jwt.JwtUtils;
 import br.com.ifba.sididoc.repository.SectorRepository;
 import br.com.ifba.sididoc.repository.UserRepository;
+import br.com.ifba.sididoc.util.RequestUtils;
 import br.com.ifba.sididoc.util.UserUtils;
 import br.com.ifba.sididoc.web.dto.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -35,6 +37,7 @@ public class UserService {
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
     private final UserDetailsService userDetailsService;
+    private final AuditService auditService;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -71,6 +74,14 @@ public class UserService {
         user = userRepository.save(user);
 
         log.info("Novo usuário registrado: [{}] [{}]", user.getName(), user.getEmail());
+
+        auditService.log(
+                AuditAction.USER_REGISTRATION,
+            "Novo usuário registrado: " + user.getEmail(),
+            adminUser.getEmail(),
+            RequestUtils.getClientIp()
+        );
+
         sendActivationEmail(user);
         return user;
     }
@@ -92,6 +103,14 @@ public class UserService {
                 """.formatted(user.getName(), link);
 
         log.info("Enviando e-mail de ativação para: [{}]", user.getEmail());
+
+        auditService.log(
+                AuditAction.SEND_ACTIVATION_EMAIL,
+            "E-mail de ativação enviado para: " + user.getEmail(),
+            "SYSTEM",
+            RequestUtils.getClientIp()
+        );
+
         emailService.send(user.getEmail(), "SIDIDOC - Ativação de conta", text);
     }
 
@@ -115,6 +134,14 @@ public class UserService {
         }
 
         log.info("Usuário [{}] definiu sua senha e pode acessar o sistema.", user.getEmail());
+
+        auditService.log(
+            AuditAction.COMPLETE_REGISTRATION,
+            "Usuário completou o registro: " + user.getEmail(),
+            user.getEmail(),
+            RequestUtils.getClientIp()
+        );
+
         userRepository.save(user);
         //ADD email de confirmação de cadastro
     }
@@ -142,6 +169,14 @@ public class UserService {
                 """.formatted(user.getName(), link);
 
         log.info("Enviando e-mail de redefinição de senha para: [{}]", user.getEmail());
+
+        auditService.log(
+                AuditAction.SEND_PASSWORD_RESET_EMAIL,
+            "E-mail de redefinição de senha enviado para: " + user.getEmail(),
+            "SYSTEM",
+            RequestUtils.getClientIp()
+        );
+
         emailService.send(user.getEmail(), "SIDIDOC - Redefinição de senha", text);
     }
 
@@ -158,6 +193,14 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
 
         log.info("Usuário [{}] redefiniu sua senha com sucesso.", user.getEmail());
+
+        auditService.log(
+                AuditAction.RESET_PASSWORD,
+            "Usuário redefiniu a senha: " + user.getEmail(),
+            user.getEmail(),
+            RequestUtils.getClientIp()
+        );
+
         userRepository.save(user);
     }
 
@@ -211,6 +254,12 @@ public class UserService {
         String email = jwtUtils.extractUsername(cleanToken);
 
         log.info("Solicitação de troca de contexto: Usuário [{}] tentando acessar o Setor ID [{}]", email, newSectorId);
+        auditService.log(
+                AuditAction.SECTOR_SWITCH_ATTEMPT,
+            "Tentativa de troca de setor para ID " + newSectorId,
+            email,
+            RequestUtils.getClientIp()
+        );
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> {
@@ -223,6 +272,13 @@ public class UserService {
 
         if (!hasAccess) {
             log.warn("ACESSO NEGADO: O usuário [{}] tentou acessar o Setor ID [{}] mas não possui permissão.", email, newSectorId);
+            auditService.log(
+                    AuditAction.SECTOR_ACCESS_DENIED,
+                "Tentativa de acesso negado ao setor ID " + newSectorId,
+                email,
+                RequestUtils.getClientIp()
+            );
+
             throw new SectorAccessDeniedException("Usuário não tem acesso a este setor.");
         }
 
@@ -231,6 +287,12 @@ public class UserService {
         String newToken = jwtUtils.generateToken(userDetails, newSectorId);
 
         log.info("Troca de setor realizada com sucesso. Usuário [{}] agora está operando no Setor ID [{}].", email, newSectorId);
+        auditService.log(
+                AuditAction.SECTOR_SWITCH_SUCCESS,
+            "Troca de setor bem sucedida para ID " + newSectorId,
+            email,
+            RequestUtils.getClientIp()
+        );
 
         return new JwtToken(newToken);
     }
@@ -287,6 +349,12 @@ public class UserService {
             user.setCurrentSector(sector);
             log.info("Setor [{}] definido como setor atual do usuário [{}].",
                     sector.getCode(), user.getEmail());
+            auditService.log(
+                    AuditAction.SET_CURRENT_SECTOR,
+                "Setor " + sector.getCode() + " definido como setor atual.",
+                user.getEmail(),
+                RequestUtils.getClientIp()
+            );
         }
 
         userRepository.save(user);
@@ -311,6 +379,12 @@ public class UserService {
 
         userRepository.save(user);
         log.info("Vínculo removido com sucesso.");
+        auditService.log(
+                AuditAction.REMOVE_USER_FROM_SECTOR,
+            "Usuário removido do setor " + sector.getCode(),
+            "SYSTEM",
+            RequestUtils.getClientIp()
+        );
     }
 
     @Transactional(readOnly = true)
@@ -344,6 +418,14 @@ public class UserService {
         user.setName(dto.name());
         user.setEmail(dto.email());
 
+        auditService.log(
+                AuditAction.UPDATE_MY_PROFILE,
+            "Usuário atualizou seu perfil.",
+            user.getEmail(),
+            RequestUtils.getClientIp()
+        );
+
+        log.info("Atualizando informações do próprio usuário: {}", dto.name());
         return UserResponseDTO.fromEntity(userRepository.save(user));
     }
 
@@ -363,6 +445,13 @@ public class UserService {
         user.setEmail(dto.email());
         user.setRole(dto.role());
 
+        auditService.log(
+                AuditAction.UPDATE_USER_PROFILE,
+            "Administrador atualizou o perfil do usuário ID " + userId,
+            UserUtils.getAuthenticatedUserEmail(),
+            RequestUtils.getClientIp()
+        );
+
         log.info("Atualizando informações do usuário: {}", dto.name());
         return UserResponseDTO.fromEntity(userRepository.save(user));
     }
@@ -375,21 +464,47 @@ public class UserService {
         User userDelete = findById(userId);
 
         if (me.getId().equals(userId)) {
+            auditService.log(
+                    AuditAction.DELETE_OWN_USER_ATTEMPT,
+                "Tentativa de deletar o próprio usuário.",
+                me.getEmail(),
+                RequestUtils.getClientIp()
+            );
             log.warn("Usuário [{}] tentou deletar o próprio usuário.", me.getName());
             throw new ResourceNotFoundException("Você não pode deletar o próprio usuário.");
         }
 
         if (userDelete.getRole() == Role.SUPER_ADMIN) {
+            auditService.log(
+                    AuditAction.DELETE_USER_ADMIN,
+                "Tentativa de deletar Administrador: " + userDelete.getEmail(),
+                me.getEmail(),
+                RequestUtils.getClientIp()
+            );
             log.warn("Tentativa de deletar um Administrador [{}]", userDelete.getName());
             throw new ResourceNotFoundException("Não é permitido deletar um Administrador.");
         }
 
         if (me.getRole() == Role.SECTOR_ADMIN &&
                 userDelete.getRole() != Role.OPERATOR) {
+
+            auditService.log(
+                    AuditAction.DELETE_USER_PERMISSION_DENIED,
+                "Setor Admin tentou deletar usuário com permissão maior ou igual: " + userDelete.getEmail(),
+                me.getEmail(),
+                RequestUtils.getClientIp()
+            );
+
             log.warn("Setor Admin [{}] tentou deletar usuário com permissão maior ou igual.", me.getName());
             throw new ResourceNotFoundException("Você não tem permissão para deletar este usuário.");
         }
 
+        auditService.log(
+                AuditAction.DELETE_USER,
+            "Usuário deletado: " + userDelete.getEmail(),
+            me.getEmail(),
+            RequestUtils.getClientIp()
+        );
         log.warn("Usuário [{}] foi deletado do sistema por [{}].", userDelete.getName(), me.getName());
         userRepository.delete(userDelete);
     }
