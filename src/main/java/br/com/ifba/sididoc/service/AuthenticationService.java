@@ -1,7 +1,9 @@
 package br.com.ifba.sididoc.service;
 
+import br.com.ifba.sididoc.entity.User;
 import br.com.ifba.sididoc.jwt.JwtUtils;
 import br.com.ifba.sididoc.repository.SectorRepository;
+import br.com.ifba.sididoc.repository.UserRepository;
 import br.com.ifba.sididoc.web.dto.LoginRequest;
 import br.com.ifba.sididoc.web.dto.LoginResponse;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ public class AuthenticationService {
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
     private final SectorRepository sectorRepository;
+    private final UserRepository userRepository;
 
     public LoginResponse login(LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
@@ -30,7 +33,15 @@ public class AuthenticationService {
         );
 
         UserDetails principal = (UserDetails) authentication.getPrincipal();
-        String token = jwtUtils.generateToken(principal, null);
+
+        User user = userRepository.findByEmail(principal.getUsername())
+                .orElseThrow();
+
+        Long sectorId = user.getCurrentSector() != null
+                ? user.getCurrentSector().getId()
+                : null;
+
+        String token = jwtUtils.generateToken(principal, sectorId);
 
         String role = principal.getAuthorities().stream()
                 .findFirst()
