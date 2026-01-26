@@ -4,11 +4,16 @@ import br.com.ifba.sididoc.entity.DocumentBatch;
 import br.com.ifba.sididoc.exception.ResourceAlreadyExistsException;
 import br.com.ifba.sididoc.exception.ResourceNotFoundException;
 import br.com.ifba.sididoc.repository.DocumentBatchRepository;
+import br.com.ifba.sididoc.web.dto.CreateBatchDTO;
+import br.com.ifba.sididoc.web.dto.DocumentBatchResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -35,5 +40,12 @@ public class DocumentBatchService {
                 .build();
 
         return repository.save(batch);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<DocumentBatchResponse> listAll(Pageable pageable) {
+        log.info("Buscando lista de codigo de lotes. Página: {}, Tamanho: {}", pageable.getPageNumber(),
+                pageable.getPageSize());
+        return repository.findAll(pageable).map(DocumentBatchResponse::fromEntity);
     }
 }
