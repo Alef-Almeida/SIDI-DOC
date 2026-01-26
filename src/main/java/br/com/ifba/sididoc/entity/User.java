@@ -40,6 +40,10 @@ public class User extends PersistenceEntity{
 
     private Boolean isFirstAccess;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "current_sector_id")
+    private Sector currentSector;
+
 }
 
 

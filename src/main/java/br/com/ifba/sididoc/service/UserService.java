@@ -64,6 +64,10 @@ public class UserService {
                 .passwordHash(null)
                 .build();
 
+        if (sectors.size() == 1) {
+            user.setCurrentSector(sectors.get(0));
+        }
+
         user = userRepository.save(user);
 
         log.info("Novo usuário registrado: [{}] [{}]", user.getName(), user.getEmail());
@@ -102,6 +106,13 @@ public class UserService {
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setIsFirstAccess(false);
+
+        if (user.getCurrentSector() == null &&
+                user.getSectors() != null &&
+                user.getSectors().size() == 1) {
+
+            user.setCurrentSector(user.getSectors().get(0));
+        }
 
         log.info("Usuário [{}] definiu sua senha e pode acessar o sistema.", user.getEmail());
         userRepository.save(user);
@@ -271,6 +282,12 @@ public class UserService {
 
         user.getSectors().add(sector);
         sector.getUsers().add(user);
+
+        if (user.getCurrentSector() == null) {
+            user.setCurrentSector(sector);
+            log.info("Setor [{}] definido como setor atual do usuário [{}].",
+                    sector.getCode(), user.getEmail());
+        }
 
         userRepository.save(user);
         log.info("Vínculo salvo com sucesso.");
